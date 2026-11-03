@@ -168,6 +168,7 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--arquivo` | (só em `validar-lista`) JSON com a lista de CNPJs/nomes |
 | `--cep` | 📍 prefixo de CEP — filtra por **bairro/região** dentro de um município (ex. `--cep 0507` cobre a região da Lapa em São Paulo capital) |
 | `--matriz` | só estabelecimentos **matriz** (exclui filiais; envia `matriz_filial=1` na busca avançada) |
+| `--continuar` | (em `descobrir` e `prospectar`) entrega os **próximos 100 validados** da mesma consulta, sem repetir CNPJ já entregue. Sem a flag, repetir a consulta devolve sempre o lote 1. A saída informa `lote` |
 | `--situacao` | (também em `validar-lista`) situação cadastral desejada (padrão: `ativa`) |
 | `--db-path` | onde fica o checkpoint SQLite (padrão: `.cache/pipeline.sqlite3`) |
 | `--verbose` / `-v` | detalhe de cada lead no **stderr** (o stdout continua só com o JSON) |

@@ -25,7 +25,7 @@ def test_stdout_continua_sendo_um_unico_json_com_logs_ligados(api_dentista, tmp_
     assert resultado.exit_code == 0
     saida = json.loads(resultado.stdout)  # falharia se qualquer log vazasse para o stdout
     assert saida["total"] == 1
-    for marco in ("S0 preflight ok", "S1 CNAE 8630504: página 1/1", "S3 pronto: 1 validado", "pronto: 1 lead"):
+    for marco in ("S0 preflight ok", "S1 CNAE 8630504: página 1/1", "S3 pronto: lote 1 com 1 validado", "pronto: 1 lead"):
         assert marco in resultado.stderr, marco
     assert resultado.stderr.count("\n") >= 4
 

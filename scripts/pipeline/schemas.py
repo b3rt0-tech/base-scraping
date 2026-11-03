@@ -118,6 +118,7 @@ class NaoResolvido(_Modelo):
 class SaidaDescobrir(_Modelo):
     icp: Icp
     total: int
+    lote: int
     descobertos: int
     validados: int
     esgotou_busca: bool
@@ -128,6 +129,7 @@ class SaidaDescobrir(_Modelo):
 class SaidaProspectar(_Modelo):
     icp: Icp
     total: int
+    lote: int
     descobertos: int
     validados: int
     esgotou_busca: bool
