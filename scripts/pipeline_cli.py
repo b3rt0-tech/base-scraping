@@ -7,6 +7,7 @@ from typing import Any, NoReturn
 
 import typer
 
+from scripts.basecnpj.config import SKILL_ROOT, get_settings
 from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery
@@ -30,6 +31,10 @@ class PreflightError(RuntimeError):
     """O `route=status` não respondeu `ok` — a descoberta não deve começar."""
 
 
+class TokenAusenteError(RuntimeError):
+    """`BASECNPJ_TOKEN` não está configurado — diferente de token inválido (`AuthError`)."""
+
+
 def _exit_with_error(codigo: str, mensagem: str) -> NoReturn:
     typer.echo(json.dumps({"erro": codigo, "mensagem": mensagem}, ensure_ascii=False))
     raise typer.Exit(code=1)
@@ -43,6 +48,8 @@ def _run_or_exit(coro):
             "token_invalido",
             "Token inválido, expirado ou sem permissão para a rota; conferir a variável BASECNPJ_TOKEN.",
         )
+    except TokenAusenteError as exc:
+        _exit_with_error("token_ausente", str(exc))
     except PreflightError as exc:
         _exit_with_error("preflight_falhou", str(exc))
 
@@ -91,6 +98,12 @@ def _icp_resumo(icp: icp_module.ICP) -> dict[str, Any]:
 
 
 async def _exigir_preflight() -> None:
+    # `route=status` é público e não acusaria a falta do token — checar antes
+    if not get_settings().token:
+        raise TokenAusenteError(
+            f"BASECNPJ_TOKEN não está configurado. Crie {SKILL_ROOT / '.env'} a partir de .env.example "
+            "(BASECNPJ_TOKEN=<seu-token>) ou exporte a variável de ambiente."
+        )
     status = await icp_module.preflight()
     if status.get("status") != "ok":
         raise PreflightError(f"preflight falhou: {status}")

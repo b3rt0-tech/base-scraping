@@ -104,6 +104,8 @@ uv sync
    # edite .env e preencha BASECNPJ_TOKEN=<seu-token>
    ```
 
+📍 O `.env` é lido da **raiz da skill** (e, como fallback, do diretório atual), então o comando funciona de qualquer pasta. Sem token o CLI responde `erro: token_ausente`; token recusado pela API é `erro: token_invalido`.
+
 🔐 O token **nunca** entra no repositório — `.env` está no `.gitignore`, só `.env.example` é versionado.
 
 ---

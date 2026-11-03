@@ -107,6 +107,26 @@ def test_prospectar_tambem_informa_o_icp(api_dentista, tmp_path):
     assert saida["icp"]["cnaes"] == ["8630504"]
 
 
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["descobrir", "dentista"],
+        ["prospectar", "dentista"],
+        ["validar-lista", "--arquivo", "{lista}"],
+    ],
+)
+def test_token_ausente_e_diferente_de_token_invalido(api, monkeypatch, tmp_path, args):
+    chamadas = api({"status": {"status": "ok"}})
+    monkeypatch.delenv("BASECNPJ_TOKEN")
+    lista = tmp_path / "lista.json"
+    lista.write_text(json.dumps([{"cnpj": CNPJ_PADRAO}]))
+    codigo, saida = _rodar(*[a.format(lista=lista) for a in args])
+    assert codigo == 1
+    assert saida["erro"] == "token_ausente"
+    assert ".env" in saida["mensagem"]
+    assert chamadas == []  # nem o preflight público é chamado
+
+
 def test_token_invalido(api):
     api({"status": {"status": "ok"}, "avancada": erro(401, "unauthorized")})
     codigo, saida = _rodar("descobrir", "dentista", "--uf", "SP")

@@ -25,7 +25,7 @@ O pipeline já está implementado e testado em `scripts/`. Não escreva Python n
 
 1. **Diretório de trabalho:** todos os comandos abaixo assumem `cd` para a raiz deste skill (onde estão `pyproject.toml` e `scripts/`). Rode `ls pyproject.toml` para confirmar que está no lugar certo antes de tudo.
 2. **Dependências:** se for a primeira vez, `uv sync` instala tudo (ambiente já costuma estar pronto). Nunca rode `pip install` direto — este projeto usa `uv`.
-3. **Token:** `BASECNPJ_TOKEN` precisa estar em `.env` na raiz do skill (ver `.env.example`). Se não existir, pare e peça o token ao usuário — nunca invente um.
+3. **Token:** `BASECNPJ_TOKEN` precisa estar em `.env` na raiz do skill (ver `.env.example`; o `.env` é lido da raiz do skill mesmo se o comando rodar de outro diretório). Se não existir, o comando responde `erro: token_ausente`: pare e peça o token ao usuário — nunca invente um. `erro: token_invalido` é outro caso (token existe, mas a API recusou).
 4. **Comando de descoberta+validação só (S0→S3), sem scraping:**
    ```
    uv run python -m scripts.pipeline_cli descobrir "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz]
