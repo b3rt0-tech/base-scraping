@@ -68,6 +68,33 @@ def test_extract_contacts_from_html():
     assert extraido.redes_sociais == {"instagram": "https://www.instagram.com/sorriso"}
 
 
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<p>veja <img src="x"> logo@2x.png e icon@3x.webp</p>',
+        '<img src="logo@2x.png"> <script src="app@1.2.js"></script>',
+        '<script>Sentry.init({dsn: "https://abc@o123.ingest.sentry.io/456"})</script>',
+        '<body><style>.a{background:url(bg@2x.png)}</style><noscript>ping@track.com</noscript></body>',
+    ],
+)
+def test_extract_emails_ignora_assets_e_conteudo_nao_visivel(html):
+    assert extract_contacts_from_html(html).emails == set()
+
+
+def test_extract_emails_continua_pegando_o_legitimo_ao_lado_do_ruido():
+    html = '<script>var d="spam@tracker.com"</script><p>logo@2x.png fale com vendas@loja.com.br</p>'
+    assert extract_contacts_from_html(html).emails == {"vendas@loja.com.br"}
+
+
+def test_extract_emails_de_mailto():
+    html = (
+        '<a href="mailto:Ana.Souza@Empresa.com.br?subject=Or%C3%A7amento">escreva</a>'
+        '<a href="MAILTO:a@x.com.br, b@x.com.br">dois</a>'
+        '<a href="mailto:logo@2x.png">lixo</a><a href="mailto:">vazio</a>'
+    )
+    assert extract_contacts_from_html(html).emails == {"ana.souza@empresa.com.br", "a@x.com.br", "b@x.com.br"}
+
+
 async def test_discover_contacts_segue_paginas_de_alto_sinal(respx_mock):
     mock_site(respx_mock, {"/": HOME_HTML, "/contato": CONTATO_HTML, "/sobre-nos/": "<p>sobre</p>"})
     resultado = await discover_contacts(f"{SITE}/", scraping_http.ScrapeSession())

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
@@ -12,6 +12,12 @@ from scripts.utils import only_digits
 HIGH_SIGNAL_PATHS = ["/contato", "/contatos", "/sobre", "/sobre-nos", "/equipe", "/quem-somos", "/about", "/contact"]
 
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+# assets retina (`logo@2x.png`) casam a regex porque "png" parece um TLD
+_ASSET_EXTENSIONS = frozenset(
+    {"png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "js", "css", "map", "woff", "woff2"}
+)
+_NON_CONTENT_TAGS = ["script", "style", "noscript"]  # e-mails de DSN (Sentry), analytics etc. moram aqui
+
 _PHONE_RE = re.compile(r"(?:\+55\s?)?\(?\d{2}\)?[\s.-]?\d{4,5}[\s.-]?\d{4}")
 _WHATSAPP_LINK_RE = re.compile(r"(?:wa\.me|whatsapp\.com)/(?:send/?\?phone=)?(\d{8,15})")
 
@@ -52,15 +58,36 @@ def _extract_social_links(tree: HTMLParser) -> dict[str, str]:
     return redes
 
 
+def _email_valido(email: str) -> bool:
+    return email.rsplit(".", 1)[-1].lower() not in _ASSET_EXTENSIONS
+
+
+def _extract_mailto(tree: HTMLParser) -> set[str]:
+    """`mailto:` é a fonte mais confiável: o site declarou aquele endereço como contato."""
+    emails: set[str] = set()
+    for a in tree.css("a[href]"):
+        href = (a.attributes.get("href") or "").strip()
+        if not href.lower().startswith("mailto:"):
+            continue
+        destinatarios = unquote(href[len("mailto:") :].split("?", 1)[0])
+        for candidato in destinatarios.split(","):
+            candidato = candidato.strip().lower()
+            if _EMAIL_RE.fullmatch(candidato) and _email_valido(candidato):
+                emails.add(candidato)
+    return emails
+
+
 def extract_contacts_from_html(html: str) -> ContactExtraction:
     """Extração determinística — deliberadamente NÃO usa trafilatura aqui: contato
     costuma morar no rodapé/cabeçalho, exatamente o que trafilatura remove por
     design (é feito pra extrair conteúdo editorial, não boilerplate).
     """
     tree = HTMLParser(html)
+    emails = _extract_mailto(tree)
+    tree.strip_tags(_NON_CONTENT_TAGS)
     texto = tree.text(separator=" ")
 
-    emails = {m.lower() for m in _EMAIL_RE.findall(texto)}
+    emails |= {m.lower() for m in _EMAIL_RE.findall(texto) if _email_valido(m)}
     telefones = {only_digits(m) for m in _PHONE_RE.findall(texto)}
 
     whatsapp: set[str] = set()
