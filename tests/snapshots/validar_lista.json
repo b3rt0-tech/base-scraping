@@ -206,5 +206,6 @@
       "nome": "Empresa Sumida",
       "motivo": "sem match único na sugestão/busca"
     }
-  ]
+  ],
+  "excluidos": 0
 }

@@ -35,7 +35,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 
 **Campo sem dado não aparece** na saída (em vez de vir `null`); só `cnpj`, `score`, `score_breakdown`, `prioridade`, `canal_direto` e `proveniencia` estão sempre presentes.
 
-A saída de `prospectar` e `validar-lista` traz também `resumo` (o boletim do lote): `total`, `por_prioridade{A,B,C}`, `com_decisor`, `com_canal_direto`, `com_whatsapp`, `com_site`, `com_contato_de_contador`, `mei`. Os leads vêm ordenados por prioridade, depois score (no empate: fit, capital, tempo de mercado).
+`descobrir`, `prospectar` e `validar-lista` informam `excluidos` (quantos estavam no CRM via `--excluir`; não entram em `descartados`). A saída de `prospectar` e `validar-lista` traz também `resumo` (o boletim do lote): `total`, `por_prioridade{A,B,C}`, `com_decisor`, `com_canal_direto`, `com_whatsapp`, `com_site`, `com_contato_de_contador`, `mei`. Os leads vêm ordenados por prioridade, depois score (no empate: fit, capital, tempo de mercado).
 
 Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`) para os modelos Pydantic reais, e `references/basecnpj.md` para o levantamento completo do formato observado.
 

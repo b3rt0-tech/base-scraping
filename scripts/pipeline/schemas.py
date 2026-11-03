@@ -152,6 +152,7 @@ class SaidaDescobrir(_Modelo):
     descobertos: int
     validados: int
     esgotou_busca: bool
+    excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
     leads: list[LeadResumo]
     descartados: list[Descartado]
 
@@ -163,6 +164,7 @@ class SaidaProspectar(_Modelo):
     descobertos: int
     validados: int
     esgotou_busca: bool
+    excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
     leads: list[Lead]
     resumo: Resumo
     descartados: list[Descartado]
@@ -174,6 +176,7 @@ class SaidaValidarLista(_Modelo):
     resumo: Resumo
     descartados: list[Descartado]
     nao_resolvidos: list[NaoResolvido]
+    excluidos: int = 0  # já no CRM (`--excluir`)
     aviso: str | None = None
 
 
