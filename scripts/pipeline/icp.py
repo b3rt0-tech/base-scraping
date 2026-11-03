@@ -85,7 +85,7 @@ def load_cnae_dictionary(path: Path | str = DEFAULT_CNAE_DICT_PATH) -> list[Nich
     """Faz o parsing da tabela Markdown de `references/cnae.md` (nicho → CNAE)."""
     path = Path(path)
     entries: list[NichoEntry] = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         match = _TABLE_ROW_RE.match(line.strip())
         if not match:
             continue
