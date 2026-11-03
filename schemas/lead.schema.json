@@ -529,6 +529,22 @@
           "default": null,
           "title": "Site"
         },
+        "site_origem": {
+          "anyOf": [
+            {
+              "enum": [
+                "sites_json",
+                "email_cadastral"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Site Origem"
+        },
         "emails": {
           "anyOf": [
             {

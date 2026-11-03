@@ -27,6 +27,17 @@ GENERIC_PROVIDER_DOMAINS = {
     "bol.com.br",
     "uol.com.br",
     "terra.com.br",
+    # provedores brasileiros e variantes ".com.br" digitadas no cadastro da Receita (vistas em dados reais)
+    "gmail.com.br",
+    "hotmail.com.br",
+    "outlook.com.br",
+    "live.com.br",
+    "msn.com",
+    "ig.com.br",
+    "globo.com",
+    "globomail.com",
+    "r7.com",
+    "zipmail.com.br",
 }
 
 GENERIC_LOCAL_PARTS = {

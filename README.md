@@ -176,7 +176,7 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
 | `--perfil` | `icp.yaml` com o perfil do cliente ideal (ver abaixo). Padrão: `icp.yaml` na raiz da skill, se existir |
 
-Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não tem os campos de site/e-mail/redes sociais, que dependem de uma URL candidata (achada via busca web, fora do escopo do script; ver `SKILL.md`).
+Sem `--sites-json`, `prospectar` tenta sozinho o **domínio do e-mail cadastral** quando ele é da empresa (não Gmail/Hotmail etc., não de contador) e só mantém o site se ele confirmar ser a empresa (`site_origem: email_cadastral`). Em dentistas de Campinas isso confirmou 10 sites em 100 leads sem nenhuma busca web. Para os demais, a URL candidata vem da busca web da skill (ver `SKILL.md`) via `--sites-json`, que tem prioridade.
 
 ### 🎯 Perfil do cliente ideal (`icp.yaml`)
 

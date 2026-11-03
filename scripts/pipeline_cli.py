@@ -22,7 +22,7 @@ from scripts.pipeline.perfil import PerfilICP, PerfilInvalido, carregar_perfil
 from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
 from scripts.pipeline.score import compute_score
-from scripts.pipeline.sinais import aplicar_sinais
+from scripts.pipeline.sinais import aplicar_sinais, site_do_email_cadastral
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import USER_AGENT, ScrapeSession
@@ -33,6 +33,7 @@ log = log_module.get_logger("cli")
 app = typer.Typer(help="Pipeline do base-scraping — S0→S3 (descobrir) e S0→S4→S6 (prospectar, sem S5).")
 
 TARGET_LEADS = 100  # decisão fechada, seção 11 do ARCTETURE.md — sem override de CLI
+SITE_AUTOMATICO = True  # sem --sites-json, tenta o domínio próprio do e-mail cadastral (desligado nos testes)
 MAX_ITENS_LISTA = 100  # teto de itens do `validar-lista`, mesmo valor do teto de leads
 ENRIQUECIMENTO_CONCORRENCIA = 8  # leads enriquecidos ao mesmo tempo (domínios distintos; o mesmo domínio é serializado)
 MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
@@ -321,6 +322,7 @@ async def _enriquecer_um(
     semaforo: asyncio.Semaphore,
     progresso: _Progresso,
     perfil: PerfilICP | None = None,
+    origem_site: str | None = None,
 ) -> dict[str, Any]:
     enrichment = None
     if candidate_url:
@@ -338,12 +340,17 @@ async def _enriquecer_um(
                 client=client,
             )
 
+    if origem_site == "email_cadastral" and enrichment is not None and not enrichment.site_matched:
+        # site deduzido por nós que não se confirmou (fora do ar, domínio de terceiro): o usuário nunca o
+        # indicou, então some sem virar alerta — o lead sai só com o dado cadastral
+        enrichment = None
+
     score = compute_score(resultado, enrichment, perfil)
-    lead = build_lead_json(resultado, score, enrichment, perfil=perfil)
+    lead = build_lead_json(resultado, score, enrichment, perfil=perfil, origem_site=origem_site)
     if candidate_url:
         progresso.feitos += 1
-        status = lead["enriquecimento"]["status"]
-        motivo = lead["enriquecimento"]["motivo"]
+        status = lead["enriquecimento"]["status"] if "enriquecimento" in lead else "sem site próprio"
+        motivo = lead["enriquecimento"]["motivo"] if "enriquecimento" in lead else None
         registrar = log.info if status == "ok" else log.warning
         sufixo = f" ({motivo})" if motivo else ""
         registrar("S4 %d/%d %s → %s%s", progresso.feitos, progresso.total, resultado.cnpj, status, sufixo)
@@ -365,18 +372,41 @@ async def _enriquecer_e_pontuar(
     compartilhado. O rate limit continua valendo: o `ScrapeSession` serializa as
     requisições de cada domínio (lock + delay de 2-5s) e o teto de páginas por domínio.
     """
+    # `--sites-json` tem prioridade; sem ele, o domínio próprio do e-mail cadastral vira candidato
+    candidatos: dict[str, tuple[str, str]] = {}
+    for r in resultados:
+        if sites.get(r.cnpj):
+            candidatos[r.cnpj] = (sites[r.cnpj], "sites_json")
+        elif SITE_AUTOMATICO and (site := site_do_email_cadastral(r)):
+            candidatos[r.cnpj] = (site, "email_cadastral")
+
     session = ScrapeSession()
     semaforo = asyncio.Semaphore(concorrencia)
-    progresso = _Progresso(total=sum(1 for r in resultados if sites.get(r.cnpj)))
+    progresso = _Progresso(total=len(candidatos))
     if progresso.total:
-        log.info("S4 enriquecimento: %d lead(s) com site candidato, até %d em paralelo", progresso.total, concorrencia)
+        automaticos = sum(1 for _, origem in candidatos.values() if origem == "email_cadastral")
+        log.info(
+            "S4 enriquecimento: %d lead(s) com site candidato (%d pelo e-mail cadastral), até %d em paralelo",
+            progresso.total,
+            automaticos,
+            concorrencia,
+        )
     else:
-        log.info("S4 pulado: nenhum site candidato informado — leads saem só com dado cadastral")
+        log.info("S4 pulado: nenhum site candidato — leads saem só com dado cadastral")
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
         return list(
             await asyncio.gather(
                 *(
-                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo, progresso, perfil)
+                    _enriquecer_um(
+                        resultado,
+                        candidatos.get(resultado.cnpj, (None, None))[0],
+                        session,
+                        client,
+                        semaforo,
+                        progresso,
+                        perfil,
+                        origem_site=candidatos.get(resultado.cnpj, (None, None))[1],
+                    )
                     for resultado in resultados
                 )
             )
