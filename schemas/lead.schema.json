@@ -669,6 +669,18 @@
           "title": "Total",
           "type": "integer"
         },
+        "descobertos": {
+          "title": "Descobertos",
+          "type": "integer"
+        },
+        "validados": {
+          "title": "Validados",
+          "type": "integer"
+        },
+        "esgotou_busca": {
+          "title": "Esgotou Busca",
+          "type": "boolean"
+        },
         "leads": {
           "items": {
             "$ref": "#/$defs/LeadResumo"
@@ -687,6 +699,9 @@
       "required": [
         "icp",
         "total",
+        "descobertos",
+        "validados",
+        "esgotou_busca",
         "leads",
         "descartados"
       ],
@@ -702,6 +717,18 @@
         "total": {
           "title": "Total",
           "type": "integer"
+        },
+        "descobertos": {
+          "title": "Descobertos",
+          "type": "integer"
+        },
+        "validados": {
+          "title": "Validados",
+          "type": "integer"
+        },
+        "esgotou_busca": {
+          "title": "Esgotou Busca",
+          "type": "boolean"
         },
         "leads": {
           "items": {
@@ -721,6 +748,9 @@
       "required": [
         "icp",
         "total",
+        "descobertos",
+        "validados",
+        "esgotou_busca",
         "leads",
         "descartados"
       ],

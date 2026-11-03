@@ -118,6 +118,9 @@ class NaoResolvido(_Modelo):
 class SaidaDescobrir(_Modelo):
     icp: Icp
     total: int
+    descobertos: int
+    validados: int
+    esgotou_busca: bool
     leads: list[LeadResumo]
     descartados: list[Descartado]
 
@@ -125,6 +128,9 @@ class SaidaDescobrir(_Modelo):
 class SaidaProspectar(_Modelo):
     icp: Icp
     total: int
+    descobertos: int
+    validados: int
+    esgotou_busca: bool
     leads: list[Lead]
     descartados: list[Descartado]
 

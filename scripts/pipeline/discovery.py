@@ -15,6 +15,7 @@ from .icp import ICP
 
 log = get_logger("discovery")
 
+MAX_DESCOBERTOS = 500  # teto de segurança: nicho com muito descarte não pagina para sempre
 PER_PAGE = 100  # máximo da API (confirmado: per_page maior é limitado a 100) — 1 chamada pesada em vez de ~7
 
 
@@ -63,6 +64,8 @@ async def discover(
                 cnpj_key = only_digits(item.get("cnpj_completo", ""))
                 if not cnpj_key:
                     continue
+                if db_module.get_lead(conn, run_id, cnpj_key) is not None:
+                    continue  # já visto (outro CNAE ou página relida na retomada): não volta a "descoberto"
                 db_module.upsert_lead(conn, run_id, cnpj_key, status="descoberto", discovery=item)
 
             total_pages = resposta.get("total_pages", page)
@@ -94,3 +97,8 @@ async def discover(
                 break
 
     return db_module.list_leads(conn, run_id, status="descoberto")
+
+
+def busca_esgotada(icp: ICP, *, conn: sqlite3.Connection, run_id: str) -> bool:
+    """Todos os CNAEs do ICP já foram paginados até o fim nesta execução."""
+    return all(db_module.get_checkpoint(conn, run_id, cnae)["exhausted"] for cnae in icp.cnaes)
