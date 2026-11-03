@@ -376,3 +376,22 @@ def test_export_ordena_por_score_e_aplica_teto():
     saida = export_leads(leads, max_leads=3)
     assert saida["total"] == 3
     assert [lead["score"] for lead in saida["leads"]] == [4, 3, 2]
+
+
+@pytest.mark.parametrize(
+    "nicho, principal, secundario, esperado",
+    [
+        ("restaurante", "5611201", None, "principal"),  # dicionário por classe (5 dígitos): `56112`
+        ("restaurante", "5611205", None, "principal"),
+        ("oficina mecânica", "4520007", None, "principal"),  # por grupo (4 dígitos): `4520`
+        ("restaurante", "4781400", "5611203", "secundario"),
+        ("restaurante", "5612100", None, None),  # 5612-1 (serviço ambulante) não é 56112
+    ],
+)
+async def test_validate_lead_cnae_por_prefixo_como_a_busca(nicho, principal, secundario, esperado):
+    cnaes = [{"tipo": "Principal", "cnae": principal}]
+    if secundario:
+        cnaes.append({"tipo": "Secundária", "cnae": secundario})
+    resultado = await _validar(make_cnpj_raw(cnaes=cnaes), nicho=nicho)
+    assert resultado.cnae_match == esperado
+    assert resultado.status == ("validado" if esperado else "descartado")

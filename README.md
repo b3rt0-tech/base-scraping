@@ -55,7 +55,7 @@ Essa separação é o que torna o resultado confiável: **se o scraping falhar n
  🔤  nicho → CNAE (references/cnae.md)         8630-5/04
         │
         ▼
- 🔎  busca avançada no BaseCNPJ (S0→S1)        até 100 leads, paginado
+ 🔎  busca avançada no BaseCNPJ (S0→S1)        até 100 validados, paginado
         │
         ▼
  ✅  validação cadastral (S3)                  situação ativa, CNAE, porte...
@@ -74,7 +74,7 @@ Essa separação é o que torna o resultado confiável: **se o scraping falhar n
 | Estágio | O que faz | Rota/fonte |
 |---|---|---|
 | **S0** — ICP | Traduz o pedido em filtros estruturados (nicho→CNAE, cidade, porte) | `route=status` (preflight) |
-| **S1** — Descoberta | Pagina a busca avançada, teto fixo de **100 leads** por execução | `route=avancada` |
+| **S1** — Descoberta | Pagina a busca avançada e valida em rodadas até **100 leads validados** (descartes não encolhem a entrega; teto de segurança de 500 descobertos) | `route=avancada` |
 | **S2** — Resolução | Resolve candidatos sem CNPJ (comando `validar-lista`); desempate só por UF, e só na `busca` | `route=sugestao`, `route=busca` |
 | **S3** — Validação | Filtra por situação cadastral, CNAE, porte; sinaliza empresa nova | `route=cnpj` |
 | **S4** — Enriquecimento | Valida o site oficial, extrai contato, verifica e-mail em 5 níveis | scraping externo |
