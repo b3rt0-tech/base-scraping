@@ -92,6 +92,51 @@ def test_nicho_desconhecido_nao_chama_api(api):
     assert chamadas == []
 
 
+SITES_INVALIDOS = [
+    ("nao-existe.json", None, "não foi possível ler"),
+    ("quebrado.json", "{nao é json", "não foi possível ler"),
+    ("lista.json", json.dumps([CNPJ_PADRAO]), "deve ser um objeto"),
+    ("chave.json", json.dumps({"abc": "https://x.com.br"}), "não é um CNPJ"),
+    ("curto.json", json.dumps({"123": "https://x.com.br"}), "não é um CNPJ"),
+    ("valor.json", json.dumps({CNPJ_PADRAO: 42}), "precisa começar com http"),
+    ("semesquema.json", json.dumps({CNPJ_PADRAO: "sorriso.com.br"}), "precisa começar com http"),
+]
+
+
+@pytest.mark.parametrize("comando", ["prospectar", "validar-lista"])
+@pytest.mark.parametrize("nome, conteudo, trecho", SITES_INVALIDOS)
+def test_sites_json_invalido_vira_erro_json(api, tmp_path, comando, nome, conteudo, trecho):
+    chamadas = api({})
+    sites = tmp_path / nome
+    if conteudo is not None:
+        sites.write_text(conteudo)
+    lista = tmp_path / "lista.json"
+    lista.write_text(json.dumps([{"cnpj": CNPJ_PADRAO}]))
+    args = ["prospectar", "dentista"] if comando == "prospectar" else ["validar-lista", "--arquivo", str(lista)]
+    codigo, saida = _rodar(*args, "--sites-json", str(sites))
+    assert codigo == 1
+    assert saida["erro"] == "entrada_invalida"
+    assert trecho in saida["mensagem"]
+    assert chamadas == []  # falha antes de qualquer chamada à API
+
+
+def test_sites_json_aceita_cnpj_formatado(api_dentista, respx_mock, tmp_path):
+    site = "https://sorriso.com.br"
+    respx_mock.get(f"{site}/robots.txt").mock(return_value=httpx.Response(404))
+    respx_mock.get(f"{site}/").mock(
+        return_value=httpx.Response(200, text="<p>CNPJ 12.345.678/0001-95 ana@sorriso.com.br</p>" + "texto " * 50)
+    )
+    sites = tmp_path / "sites.json"
+    sites.write_text(json.dumps({"12.345.678/0001-95": f" {site}/ "}))
+
+    codigo, saida = _rodar(
+        "prospectar", "dentista", "--uf", "SP", "--db-path", str(tmp_path / "p.sqlite3"), "--sites-json", str(sites)
+    )
+    assert codigo == 0
+    assert saida["leads"][0]["site"] == f"{site}/"
+    assert saida["leads"][0]["enriquecimento"]["status"] == "ok"
+
+
 def test_nicho_ambiguo_nao_chama_api(api):
     chamadas = api({})
     codigo, saida = _rodar("descobrir", "loja")
