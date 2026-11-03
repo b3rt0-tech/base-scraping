@@ -198,3 +198,14 @@ def atribuir_lote(conn: sqlite3.Connection, run_id: str, lote: int, limite: int)
 def list_lote(conn: sqlite3.Connection, run_id: str, lote: int) -> list[dict[str, Any]]:
     rows = conn.execute("SELECT * FROM leads WHERE run_id=? AND lote=? ORDER BY rowid", (run_id, lote)).fetchall()
     return [_row_to_lead(row) for row in rows]
+
+
+def marcar_trabalhados(conn: sqlite3.Connection, run_id: str, cnpjs: set[str]) -> None:
+    """Validados ainda não entregues que ganharam resultado registrado saem da fila de lotes."""
+    if not cnpjs:
+        return
+    conn.executemany(
+        "UPDATE leads SET status='ja_trabalhado' WHERE run_id=? AND cnpj=? AND status='validado' AND lote IS NULL",
+        [(run_id, cnpj) for cnpj in cnpjs],
+    )
+    conn.commit()

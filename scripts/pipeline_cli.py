@@ -16,12 +16,21 @@ from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery, planilha
 from scripts.pipeline import icp as icp_module
+from scripts.pipeline import resultados as resultados_module
 from scripts.pipeline.contador import marcar_contadores
 from scripts.pipeline.exclusao import ExclusaoInvalida, Exclusoes, carregar_exclusoes
 from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.perfil import PerfilICP, PerfilInvalido, carregar_perfil
 from scripts.pipeline.resolve import Candidato, resolve_candidato
-from scripts.pipeline.schemas import Erro, SaidaArquivo, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
+from scripts.pipeline.schemas import (
+    Erro,
+    SaidaArquivo,
+    SaidaDescobrir,
+    SaidaProspectar,
+    SaidaRegistrarResultado,
+    SaidaRelatorioResultados,
+    SaidaValidarLista,
+)
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.sinais import aplicar_sinais, site_do_email_cadastral
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
@@ -277,9 +286,12 @@ async def _descobrir_ate_validar(
         params["excluir"] = exclusoes.assinatura()  # outra lista do CRM = outra consulta
     run_id = db_module.make_run_id(params)
     db_module.ensure_run(conn, run_id, params, TARGET_LEADS)
+    # quem já tem resultado registrado (registrar-resultado) não volta como lead novo
+    trabalhados = resultados_module.trabalhados(conn)
+    db_module.marcar_trabalhados(conn, run_id, trabalhados)
 
     # retomada de execução interrompida no meio da validação
-    await _validar_pendentes(conn, run_id, icp, perfil, exclusoes)
+    await _validar_pendentes(conn, run_id, icp, perfil, exclusoes, trabalhados)
 
     lote_entregue = db_module.lote_atual(conn, run_id)
     if lote_entregue and not continuar:
@@ -299,16 +311,21 @@ async def _descobrir_ate_validar(
                 break
             alvo = min(teto_descobertos, descobertos_ate_agora + faltam)
             await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
-            await _validar_pendentes(conn, run_id, icp, perfil, exclusoes)
+            await _validar_pendentes(conn, run_id, icp, perfil, exclusoes, trabalhados)
         db_module.atribuir_lote(conn, run_id, lote, TARGET_LEADS)
 
-    validados = db_module.list_lote(conn, run_id, lote)
+    entregues_do_lote = db_module.list_lote(conn, run_id, lote)
+    # lote já entregue antes (repetição do lote 1): tira quem ganhou resultado desde então
+    validados = [lead for lead in entregues_do_lote if lead["cnpj"] not in trabalhados]
     info = {
         "lote": lote,
         "descobertos": db_module.count_leads(conn, run_id),
         "validados": len(validados),
         "esgotou_busca": discovery.busca_esgotada(icp, conn=conn, run_id=run_id),
         "excluidos": db_module.count_leads(conn, run_id, status="excluido"),
+        "ja_trabalhados": db_module.count_leads(conn, run_id, status="ja_trabalhado")
+        + len(entregues_do_lote)
+        - len(validados),
     }
     log.info(
         "S3 pronto: lote %d com %d validado(s); %d descoberto(s) na consulta%s",
@@ -321,7 +338,12 @@ async def _descobrir_ate_validar(
 
 
 async def _validar_pendentes(
-    conn: Any, run_id: str, icp: icp_module.ICP, perfil: PerfilICP | None, exclusoes: Exclusoes | None = None
+    conn: Any,
+    run_id: str,
+    icp: icp_module.ICP,
+    perfil: PerfilICP | None,
+    exclusoes: Exclusoes | None = None,
+    trabalhados: set[str] | None = None,
 ) -> None:
     """S3 dos leads ainda em "descoberto"; os já validados/descartados (retomada) são pulados. Quem já está no
     CRM (`--excluir`) vira "excluido": por CNPJ antes da chamada de validação, por domínio logo depois.
@@ -334,6 +356,9 @@ async def _validar_pendentes(
         cnpj = lead["cnpj"]
         if exclusoes and (motivo := exclusoes.por_cnpj(cnpj)):
             db_module.upsert_lead(conn, run_id, cnpj, status="excluido", discard_reason=motivo)
+            continue
+        if trabalhados and cnpj in trabalhados:
+            db_module.upsert_lead(conn, run_id, cnpj, status="ja_trabalhado", discard_reason="resultado registrado")
             continue
         try:
             resultado = await validate_lead(cnpj, icp, perfil=perfil)
@@ -629,6 +654,7 @@ def prospectar(
         saida["icp"] = _icp_resumo(icp, arquivo_perfil)
         saida["descartados"] = _listar_descartados(conn, run_id)
         saida.update(info)
+        resultados_module.registrar_entregues(conn, saida["leads"])
         return saida
 
     resultado_final = _run_or_exit(_pipeline())
@@ -788,6 +814,7 @@ def validar_lista(
         saida["descartados"] = descartados
         saida["nao_resolvidos"] = nao_resolvidos
         saida["excluidos"] = excluidos
+        resultados_module.registrar_entregues(db_module.connect(), saida["leads"])
         if ignorados:
             saida["aviso"] = f"{ignorados} item(ns) além do teto de {MAX_ITENS_LISTA} foram ignorados"
         return saida
@@ -802,6 +829,39 @@ def validar_lista(
     _emitir_leads(
         SaidaValidarLista, resultado_final, formato=formato, saida=saida, separador=separador, base="lista"
     )
+
+
+
+@app.command("registrar-resultado")
+def registrar_resultado(
+    arquivo: str = typer.Option(..., help="CSV ou JSON com cnpj, status e motivo (opcional)"),
+    db_path: str | None = None,
+    verbose: VerboseOpt = False,
+    quiet: QuietOpt = False,
+) -> None:
+    """Registra o desfecho de leads já trabalhados (contatado, respondeu, reuniao, ganho, perdido, nao_e_fit).
+    CNPJ com resultado não volta em `descobrir`/`prospectar`, e entra no `relatorio-resultados`.
+    """
+    _configurar_logs(verbose, quiet)
+    conn = db_module.connect(Path(db_path) if db_path else None)
+    try:
+        saida = resultados_module.registrar(conn, arquivo)
+    except resultados_module.ResultadoInvalido as exc:
+        _exit_with_error("entrada_invalida", str(exc))
+    log.info("resultados: %d registrado(s), %d linha(s) ignorada(s)", saida["registrados"], len(saida["ignorados"]))
+    _emitir(SaidaRegistrarResultado, saida)
+
+
+@app.command("relatorio-resultados")
+def relatorio_resultados(
+    db_path: str | None = None,
+    verbose: VerboseOpt = False,
+    quiet: QuietOpt = False,
+) -> None:
+    """Funil dos leads entregues por CNAE, porte, cidade, prioridade e sinal — base para ajustar o icp.yaml."""
+    _configurar_logs(verbose, quiet)
+    conn = db_module.connect(Path(db_path) if db_path else None)
+    _emitir(SaidaRelatorioResultados, resultados_module.relatorio(conn))
 
 
 if __name__ == "__main__":
