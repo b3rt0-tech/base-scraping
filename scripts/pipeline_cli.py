@@ -17,6 +17,7 @@ from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
 from scripts.pipeline.contador import marcar_contadores
+from scripts.pipeline.exclusao import ExclusaoInvalida, Exclusoes, carregar_exclusoes
 from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.perfil import PerfilICP, PerfilInvalido, carregar_perfil
 from scripts.pipeline.resolve import Candidato, resolve_candidato
@@ -47,6 +48,10 @@ PerfilOpt = Annotated[
     typer.Option(
         "--perfil", help="icp.yaml do perfil do cliente ideal (padrão: icp.yaml na raiz da skill, se houver)."
     ),
+]
+ExcluirOpt = Annotated[
+    str | None,
+    typer.Option("--excluir", help="CSV/TXT/JSON com CNPJs e/ou domínios já no CRM (não voltam como lead novo)."),
 ]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
@@ -143,6 +148,21 @@ def _icp_resumo(icp: icp_module.ICP, arquivo_perfil: Path | None = None) -> dict
     return resumo
 
 
+def _carregar_exclusoes_ou_exit(caminho: str | None) -> Exclusoes:
+    try:
+        exclusoes = carregar_exclusoes(caminho)
+    except ExclusaoInvalida as exc:
+        _exit_with_error("entrada_invalida", str(exc))
+    if exclusoes:
+        log.info(
+            "excluir: %d empresa(s) por CNPJ e %d domínio(s) do CRM%s",
+            len(exclusoes.raizes),
+            len(exclusoes.dominios),
+            f" ({exclusoes.ignorados} de provedor genérico ignorado(s))" if exclusoes.ignorados else "",
+        )
+    return exclusoes
+
+
 def _carregar_perfil_ou_exit(caminho: str | None) -> tuple[PerfilICP | None, Path | None]:
     try:
         perfil, arquivo = carregar_perfil(caminho)
@@ -178,6 +198,7 @@ async def _descobrir_ate_validar(
     matriz: bool = False,
     continuar: bool = False,
     perfil: PerfilICP | None = None,
+    exclusoes: Exclusoes | None = None,
 ) -> tuple[Any, str, list[dict[str, Any]], dict[str, Any]]:
     """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads ainda não processados.
     Devolve (conn, run_id, validados do lote, `lote`/`descobertos`/`validados`/`esgotou_busca`).
@@ -201,10 +222,13 @@ async def _descobrir_ate_validar(
         params["matriz"] = True  # só quando usada, para não mudar o run_id de execuções antigas
     if perfil is not None and perfil.exclusoes_ativas():
         params["perfil_excluir"] = perfil.exclusoes_ativas()  # outro corte eliminatório = outra consulta
+    if exclusoes:
+        params["excluir"] = exclusoes.assinatura()  # outra lista do CRM = outra consulta
     run_id = db_module.make_run_id(params)
     db_module.ensure_run(conn, run_id, params, TARGET_LEADS)
 
-    await _validar_pendentes(conn, run_id, icp, perfil)  # retomada de execução interrompida no meio da validação
+    # retomada de execução interrompida no meio da validação
+    await _validar_pendentes(conn, run_id, icp, perfil, exclusoes)
 
     lote_entregue = db_module.lote_atual(conn, run_id)
     if lote_entregue and not continuar:
@@ -224,7 +248,7 @@ async def _descobrir_ate_validar(
                 break
             alvo = min(teto_descobertos, descobertos_ate_agora + faltam)
             await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
-            await _validar_pendentes(conn, run_id, icp, perfil)
+            await _validar_pendentes(conn, run_id, icp, perfil, exclusoes)
         db_module.atribuir_lote(conn, run_id, lote, TARGET_LEADS)
 
     validados = db_module.list_lote(conn, run_id, lote)
@@ -233,6 +257,7 @@ async def _descobrir_ate_validar(
         "descobertos": db_module.count_leads(conn, run_id),
         "validados": len(validados),
         "esgotou_busca": discovery.busca_esgotada(icp, conn=conn, run_id=run_id),
+        "excluidos": db_module.count_leads(conn, run_id, status="excluido"),
     }
     log.info(
         "S3 pronto: lote %d com %d validado(s); %d descoberto(s) na consulta%s",
@@ -244,14 +269,21 @@ async def _descobrir_ate_validar(
     return conn, run_id, validados, info
 
 
-async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP, perfil: PerfilICP | None) -> None:
-    """S3 dos leads ainda em "descoberto"; os já validados/descartados (retomada) são pulados."""
+async def _validar_pendentes(
+    conn: Any, run_id: str, icp: icp_module.ICP, perfil: PerfilICP | None, exclusoes: Exclusoes | None = None
+) -> None:
+    """S3 dos leads ainda em "descoberto"; os já validados/descartados (retomada) são pulados. Quem já está no
+    CRM (`--excluir`) vira "excluido": por CNPJ antes da chamada de validação, por domínio logo depois.
+    """
     descobertos = db_module.list_leads(conn, run_id, status="descoberto")
     total = len(descobertos)
     if total:
         log.info("S1 descoberta: %d lead(s) para validar", total)
     for posicao, lead in enumerate(descobertos, start=1):
         cnpj = lead["cnpj"]
+        if exclusoes and (motivo := exclusoes.por_cnpj(cnpj)):
+            db_module.upsert_lead(conn, run_id, cnpj, status="excluido", discard_reason=motivo)
+            continue
         try:
             resultado = await validate_lead(cnpj, icp, perfil=perfil)
         except NotFoundError:
@@ -264,13 +296,18 @@ async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP, perfil
                 discard_reason=MOTIVO_404,
             )
             continue
+        status, motivo = resultado.status, resultado.discard_reason
+        matriz = resultado.detalhe.estabelecimento_matriz if resultado.detalhe else None
+        por_dominio = exclusoes.por_email(matriz.email if matriz else None) if exclusoes else None
+        if status == "validado" and por_dominio:
+            status, motivo = "excluido", por_dominio
         db_module.upsert_lead(
             conn,
             run_id,
             cnpj,
-            status=resultado.status,
+            status=status,
             detalhe=resultado.detalhe.model_dump() if resultado.detalhe else None,
-            discard_reason=resultado.discard_reason,
+            discard_reason=motivo,
         )
         log.debug("S3 %d/%d %s → %s %s", posicao, total, cnpj, resultado.status, resultado.discard_reason or "")
         if posicao % 10 == 0 or posicao == total:
@@ -425,6 +462,7 @@ def descobrir(
     db_path: str | None = None,
     continuar: ContinuarOpt = False,
     perfil_arquivo: PerfilOpt = None,
+    excluir: ExcluirOpt = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -440,6 +478,7 @@ def descobrir(
     _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
     perfil, arquivo_perfil = _carregar_perfil_ou_exit(perfil_arquivo)
+    exclusoes = _carregar_exclusoes_ou_exit(excluir)
 
     async def _pipeline() -> dict[str, Any]:
         conn, run_id, validados, info = await _descobrir_ate_validar(
@@ -454,6 +493,7 @@ def descobrir(
             matriz=matriz,
             continuar=continuar,
             perfil=perfil,
+            exclusoes=exclusoes,
         )
         leads = [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
         return {
@@ -481,6 +521,7 @@ def prospectar(
     db_path: str | None = None,
     continuar: ContinuarOpt = False,
     perfil_arquivo: PerfilOpt = None,
+    excluir: ExcluirOpt = None,
     sites_json: str | None = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
@@ -496,6 +537,7 @@ def prospectar(
     _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
     perfil, arquivo_perfil = _carregar_perfil_ou_exit(perfil_arquivo)
+    exclusoes = _carregar_exclusoes_ou_exit(excluir)
 
     sites = _ler_sites_json_ou_exit(sites_json)
 
@@ -512,6 +554,7 @@ def prospectar(
             matriz=matriz,
             continuar=continuar,
             perfil=perfil,
+            exclusoes=exclusoes,
         )
 
         resultados: list[ValidacaoResult] = []
@@ -595,6 +638,7 @@ def validar_lista(
     situacao: str = "ativa",
     sites_json: str | None = None,
     perfil_arquivo: PerfilOpt = None,
+    excluir: ExcluirOpt = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -612,6 +656,7 @@ def validar_lista(
 
     sites = _ler_sites_json_ou_exit(sites_json)
     perfil, _ = _carregar_perfil_ou_exit(perfil_arquivo)
+    exclusoes = _carregar_exclusoes_ou_exit(excluir)
 
     codigo_situacao = icp_module.SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao)
     icp = icp_module.ICP(nicho="lista", cnaes=[], situacao=codigo_situacao)
@@ -620,6 +665,7 @@ def validar_lista(
         await _exigir_preflight()
 
         descartados: list[dict[str, Any]] = []
+        excluidos = 0
         nao_resolvidos: list[dict[str, Any]] = []
         validados: list[ValidacaoResult] = []
         vistos: set[str] = set()
@@ -646,12 +692,21 @@ def validar_lista(
                 log.debug("S2 %d/%d %s → repetido, ignorado", posicao, total_itens, cnpj)
                 continue
             vistos.add(cnpj)
+            if exclusoes.por_cnpj(cnpj):
+                excluidos += 1
+                log.info("S3 %d/%d %s → já está no CRM, excluído", posicao, total_itens, cnpj)
+                continue
 
             try:
                 resultado = await validate_lead(cnpj, icp, perfil=perfil)
             except NotFoundError:
                 descartados.append({"cnpj": cnpj, "motivo": MOTIVO_404})
                 log.warning("S3 %d/%d %s → CNPJ não encontrado (404)", posicao, total_itens, cnpj)
+                continue
+            matriz = resultado.detalhe.estabelecimento_matriz if resultado.detalhe else None
+            if resultado.status == "validado" and exclusoes.por_email(matriz.email if matriz else None):
+                excluidos += 1
+                log.info("S3 %d/%d %s → domínio já está no CRM, excluído", posicao, total_itens, cnpj)
                 continue
             if resultado.status == "validado":
                 validados.append(resultado)
@@ -665,6 +720,7 @@ def validar_lista(
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = descartados
         saida["nao_resolvidos"] = nao_resolvidos
+        saida["excluidos"] = excluidos
         if ignorados:
             saida["aviso"] = f"{ignorados} item(ns) além do teto de {MAX_ITENS_LISTA} foram ignorados"
         return saida

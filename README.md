@@ -174,6 +174,7 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--verbose` / `-v` | detalhe de cada lead no **stderr** (o stdout continua só com o JSON) |
 | `--quiet` / `-q` | só avisos e erros no stderr (sem progresso) |
 | `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
+| `--excluir` | arquivo do CRM (`.csv`, `.txt` ou `.json`, sem preparo) com CNPJs e/ou e-mails/domínios de quem já é cliente ou lead em andamento. CNPJ exclui a **empresa inteira** (todas as filiais); domínio exclui quem tem o mesmo domínio no e-mail cadastral (Gmail/Hotmail são ignorados). Os excluídos não aparecem nem em `descartados`, e a descoberta repõe outros para manter os 100. A saída informa `excluidos` |
 | `--perfil` | `icp.yaml` com o perfil do cliente ideal (ver abaixo). Padrão: `icp.yaml` na raiz da skill, se existir |
 
 Sem `--sites-json`, `prospectar` tenta sozinho o **domínio do e-mail cadastral** quando ele é da empresa (não Gmail/Hotmail etc., não de contador) e só mantém o site se ele confirmar ser a empresa (`site_origem: email_cadastral`). Em dentistas de Campinas isso confirmou 10 sites em 100 leads sem nenhuma busca web. Para os demais, a URL candidata vem da busca web da skill (ver `SKILL.md`) via `--sites-json`, que tem prioridade.
