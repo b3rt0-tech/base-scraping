@@ -19,6 +19,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `decisores[]` (`nome`, `qualificacao`, `desde`, `origem`) | `route=cnpj` | `socios[]` da raiz do payload: só **pessoa física**, sem repetição, ordenada por qualificação (administrador > presidente > diretor > gerente > titular > sócio) e data de entrada, **máx. 3**. Empresário individual/MEI não tem `socios[]`: o titular (nome na `razao_social`) vem com `origem=razao_social_titular`. Não saem CPF mascarado nem faixa etária | quando houver dado |
 | `grupo_economico[]`, `orange_flags[]` | `route=rede` (**fase 2 — fora do v1**) | — | não emitido |
 | `site` | S4.1 (descoberta do site oficial) | URL final após redirects | só com site confirmado |
+| `site_origem` | S4 | quem indicou o candidato: `sites_json` (busca web da skill / usuário) ou `email_cadastral` (domínio próprio do e-mail do cadastro, tentado automaticamente) | com `site` |
 | `emails[]` (`valor`, `nivel` 0-5, `confianca`) | S4.2/4.3 (descoberta + verificação) | `confianca`: `invalido`, `baixa`, `media`, `boa`, `alta`, `alta_nominal` ou `maxima` (bate com o e-mail cadastral) | só com site confirmado |
 | `telefones[]`, `whatsapp[]`, `redes_sociais{}` | S4 | só números (telefone/WhatsApp); `redes_sociais` é `{rede: url}` | só com site confirmado |
 | `contatos[]` (nome, cargo, email) | S4.2 | **não emitido no v1** — extrair pessoa+cargo de HTML livre fica com o Claude, não com script | não emitido |

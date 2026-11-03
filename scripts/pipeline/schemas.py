@@ -103,6 +103,7 @@ class Lead(_Modelo):
     decisores: list[Decisor] | None = None
     # scraping (S4) — só quando há site candidato confirmado
     site: str | None = None
+    site_origem: Literal["sites_json", "email_cadastral"] | None = None  # quem indicou o site candidato
     emails: list[Email] | None = None
     telefones: list[str] | None = None
     whatsapp: list[str] | None = None

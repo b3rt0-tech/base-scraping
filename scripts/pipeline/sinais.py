@@ -5,8 +5,9 @@ from collections.abc import Collection
 from datetime import date
 
 from scripts.basecnpj.models import CNPJDetalhe
+from scripts.scraping.email_verify import DISPOSABLE_DOMAINS, GENERIC_PROVIDER_DOMAINS
 
-from .contador import telefones_compartilhados
+from .contador import FLAG_CONTADOR, sinal_email_contabil, telefones_compartilhados
 from .validate import ValidacaoResult, _parse_data
 
 FLAG_WHATSAPP = "whatsapp_provavel"
@@ -95,3 +96,18 @@ def aplicar_sinais(resultados: list[ValidacaoResult]) -> None:
         if unidades_ativas(r.detalhe) > 1:
             novos.append(FLAG_MULTIUNIDADE)
         r.flags.extend(f for f in novos if f not in r.flags)
+
+
+def site_do_email_cadastral(validacao: ValidacaoResult) -> str | None:
+    """`https://<domínio>/` do e-mail cadastral quando o domínio é da própria empresa: nem provedor
+    genérico/descartável, nem de contador. Só um candidato — quem confirma é a `validar_match` do S4.
+    """
+    detalhe = validacao.detalhe
+    matriz = detalhe.estabelecimento_matriz if detalhe else None
+    email = (matriz.email or "").strip().lower() if matriz else ""
+    if "@" not in email or FLAG_CONTADOR in validacao.flags or sinal_email_contabil(email):
+        return None
+    dominio = email.rsplit("@", 1)[1].strip(".")
+    if dominio in GENERIC_PROVIDER_DOMAINS or dominio in DISPOSABLE_DOMAINS or "." not in dominio:
+        return None
+    return f"https://{dominio}/"
