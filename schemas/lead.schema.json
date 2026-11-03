@@ -1,0 +1,772 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "base-scraping — saídas do CLI",
+  "description": "Gerado por scripts/pipeline/schemas.py — não editar à mão.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SaidaDescobrir"
+    },
+    {
+      "$ref": "#/$defs/SaidaProspectar"
+    },
+    {
+      "$ref": "#/$defs/SaidaValidarLista"
+    },
+    {
+      "$ref": "#/$defs/Erro"
+    }
+  ],
+  "$defs": {
+    "Descartado": {
+      "additionalProperties": false,
+      "properties": {
+        "cnpj": {
+          "title": "Cnpj",
+          "type": "string"
+        },
+        "motivo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motivo"
+        }
+      },
+      "required": [
+        "cnpj"
+      ],
+      "title": "Descartado",
+      "type": "object"
+    },
+    "Email": {
+      "additionalProperties": false,
+      "properties": {
+        "valor": {
+          "title": "Valor",
+          "type": "string"
+        },
+        "nivel": {
+          "title": "Nivel",
+          "type": "integer"
+        },
+        "confianca": {
+          "enum": [
+            "invalido",
+            "baixa",
+            "media",
+            "boa",
+            "alta",
+            "alta_nominal",
+            "maxima"
+          ],
+          "title": "Confianca",
+          "type": "string"
+        }
+      },
+      "required": [
+        "valor",
+        "nivel",
+        "confianca"
+      ],
+      "title": "Email",
+      "type": "object"
+    },
+    "Endereco": {
+      "additionalProperties": false,
+      "properties": {
+        "logradouro": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logradouro"
+        },
+        "municipio": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Municipio"
+        },
+        "uf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uf"
+        },
+        "cep": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cep"
+        }
+      },
+      "title": "Endereco",
+      "type": "object"
+    },
+    "Enriquecimento": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "requer_navegador",
+            "match_fraco",
+            "falha"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "motivo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motivo"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "Enriquecimento",
+      "type": "object"
+    },
+    "Erro": {
+      "additionalProperties": false,
+      "properties": {
+        "erro": {
+          "title": "Erro",
+          "type": "string"
+        },
+        "mensagem": {
+          "title": "Mensagem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "erro",
+        "mensagem"
+      ],
+      "title": "Erro",
+      "type": "object"
+    },
+    "Icp": {
+      "additionalProperties": false,
+      "properties": {
+        "nicho": {
+          "title": "Nicho",
+          "type": "string"
+        },
+        "entrada_dicionario": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entrada Dicionario"
+        },
+        "cnaes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cnaes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nicho",
+        "cnaes"
+      ],
+      "title": "Icp",
+      "type": "object"
+    },
+    "Lead": {
+      "additionalProperties": false,
+      "properties": {
+        "cnpj": {
+          "title": "Cnpj",
+          "type": "string"
+        },
+        "razao_social": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Razao Social"
+        },
+        "nome_fantasia": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome Fantasia"
+        },
+        "capital_social": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capital Social"
+        },
+        "porte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Porte"
+        },
+        "natureza_juridica": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Natureza Juridica"
+        },
+        "cnae_principal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cnae Principal"
+        },
+        "cnaes_secundarios": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cnaes Secundarios"
+        },
+        "situacao_cadastral": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Situacao Cadastral"
+        },
+        "data_abertura": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Abertura"
+        },
+        "matriz_filial": {
+          "anyOf": [
+            {
+              "enum": [
+                "matriz",
+                "filial"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matriz Filial"
+        },
+        "endereco": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Endereco"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "telefone_cadastral": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Telefone Cadastral"
+        },
+        "email_cadastral": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email Cadastral"
+        },
+        "socios": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Socios"
+        },
+        "site": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Site"
+        },
+        "emails": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Email"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emails"
+        },
+        "telefones": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Telefones"
+        },
+        "whatsapp": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Whatsapp"
+        },
+        "redes_sociais": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Redes Sociais"
+        },
+        "enriquecimento": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Enriquecimento"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "score_breakdown": {
+          "$ref": "#/$defs/ScoreBreakdown"
+        },
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flags"
+        },
+        "proveniencia": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Proveniencia"
+          },
+          "title": "Proveniencia",
+          "type": "object"
+        }
+      },
+      "required": [
+        "cnpj",
+        "score",
+        "score_breakdown",
+        "proveniencia"
+      ],
+      "title": "Lead",
+      "type": "object"
+    },
+    "LeadResumo": {
+      "additionalProperties": false,
+      "properties": {
+        "cnpj": {
+          "title": "Cnpj",
+          "type": "string"
+        },
+        "razao_social": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Razao Social"
+        }
+      },
+      "required": [
+        "cnpj"
+      ],
+      "title": "LeadResumo",
+      "type": "object"
+    },
+    "NaoResolvido": {
+      "additionalProperties": false,
+      "properties": {
+        "cnpj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cnpj"
+        },
+        "nome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nome"
+        },
+        "motivo": {
+          "title": "Motivo",
+          "type": "string"
+        }
+      },
+      "required": [
+        "motivo"
+      ],
+      "title": "NaoResolvido",
+      "type": "object"
+    },
+    "Proveniencia": {
+      "additionalProperties": false,
+      "properties": {
+        "fonte": {
+          "enum": [
+            "basecnpj",
+            "scraping",
+            "pipeline"
+          ],
+          "title": "Fonte",
+          "type": "string"
+        },
+        "rota_ou_url": {
+          "title": "Rota Ou Url",
+          "type": "string"
+        },
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fonte",
+        "rota_ou_url",
+        "timestamp"
+      ],
+      "title": "Proveniencia",
+      "type": "object"
+    },
+    "SaidaDescobrir": {
+      "additionalProperties": false,
+      "properties": {
+        "icp": {
+          "$ref": "#/$defs/Icp"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "leads": {
+          "items": {
+            "$ref": "#/$defs/LeadResumo"
+          },
+          "title": "Leads",
+          "type": "array"
+        },
+        "descartados": {
+          "items": {
+            "$ref": "#/$defs/Descartado"
+          },
+          "title": "Descartados",
+          "type": "array"
+        }
+      },
+      "required": [
+        "icp",
+        "total",
+        "leads",
+        "descartados"
+      ],
+      "title": "SaidaDescobrir",
+      "type": "object"
+    },
+    "SaidaProspectar": {
+      "additionalProperties": false,
+      "properties": {
+        "icp": {
+          "$ref": "#/$defs/Icp"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "leads": {
+          "items": {
+            "$ref": "#/$defs/Lead"
+          },
+          "title": "Leads",
+          "type": "array"
+        },
+        "descartados": {
+          "items": {
+            "$ref": "#/$defs/Descartado"
+          },
+          "title": "Descartados",
+          "type": "array"
+        }
+      },
+      "required": [
+        "icp",
+        "total",
+        "leads",
+        "descartados"
+      ],
+      "title": "SaidaProspectar",
+      "type": "object"
+    },
+    "SaidaValidarLista": {
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "leads": {
+          "items": {
+            "$ref": "#/$defs/Lead"
+          },
+          "title": "Leads",
+          "type": "array"
+        },
+        "descartados": {
+          "items": {
+            "$ref": "#/$defs/Descartado"
+          },
+          "title": "Descartados",
+          "type": "array"
+        },
+        "nao_resolvidos": {
+          "items": {
+            "$ref": "#/$defs/NaoResolvido"
+          },
+          "title": "Nao Resolvidos",
+          "type": "array"
+        },
+        "aviso": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aviso"
+        }
+      },
+      "required": [
+        "total",
+        "leads",
+        "descartados",
+        "nao_resolvidos"
+      ],
+      "title": "SaidaValidarLista",
+      "type": "object"
+    },
+    "ScoreBreakdown": {
+      "additionalProperties": false,
+      "properties": {
+        "aderencia_icp": {
+          "title": "Aderencia Icp",
+          "type": "number"
+        },
+        "qualidade_contato": {
+          "title": "Qualidade Contato",
+          "type": "number"
+        },
+        "presenca_digital": {
+          "title": "Presenca Digital",
+          "type": "number"
+        },
+        "saude_cadastral": {
+          "title": "Saude Cadastral",
+          "type": "number"
+        },
+        "total": {
+          "title": "Total",
+          "type": "number"
+        }
+      },
+      "required": [
+        "aderencia_icp",
+        "qualidade_contato",
+        "presenca_digital",
+        "saude_cadastral",
+        "total"
+      ],
+      "title": "ScoreBreakdown",
+      "type": "object"
+    }
+  }
+}
