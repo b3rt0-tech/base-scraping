@@ -18,6 +18,7 @@ from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
 from scripts.pipeline.contador import marcar_contadores
 from scripts.pipeline.export import build_lead_json, export_leads
+from scripts.pipeline.perfil import PerfilICP, PerfilInvalido, carregar_perfil
 from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
 from scripts.pipeline.score import compute_score
@@ -39,6 +40,12 @@ MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
 VerboseOpt = Annotated[bool, typer.Option("--verbose", "-v", help="Detalhe de cada lead no stderr.")]
 ContinuarOpt = Annotated[
     bool, typer.Option("--continuar", help="Entrega os próximos 100 validados da mesma consulta (lote seguinte).")
+]
+PerfilOpt = Annotated[
+    str | None,
+    typer.Option(
+        "--perfil", help="icp.yaml do perfil do cliente ideal (padrão: icp.yaml na raiz da skill, se houver)."
+    ),
 ]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
@@ -127,9 +134,22 @@ def _resolve_icp_or_exit(
     return icp
 
 
-def _icp_resumo(icp: icp_module.ICP) -> dict[str, Any]:
-    """Qual entrada do dicionário foi usada e quais CNAEs vão para a busca — o skill mostra ao usuário."""
-    return {"nicho": icp.nicho, "entrada_dicionario": icp.entrada_dicionario, "cnaes": icp.cnaes}
+def _icp_resumo(icp: icp_module.ICP, arquivo_perfil: Path | None = None) -> dict[str, Any]:
+    """Qual entrada do dicionário foi usada, quais CNAEs vão para a busca e qual perfil foi aplicado."""
+    resumo: dict[str, Any] = {"nicho": icp.nicho, "entrada_dicionario": icp.entrada_dicionario, "cnaes": icp.cnaes}
+    if arquivo_perfil is not None:
+        resumo["perfil"] = str(arquivo_perfil)
+    return resumo
+
+
+def _carregar_perfil_ou_exit(caminho: str | None) -> tuple[PerfilICP | None, Path | None]:
+    try:
+        perfil, arquivo = carregar_perfil(caminho)
+    except PerfilInvalido as exc:
+        _exit_with_error("entrada_invalida", str(exc))
+    if arquivo is not None:
+        log.info("perfil aplicado: %s", arquivo)
+    return perfil, arquivo
 
 
 async def _exigir_preflight() -> None:
@@ -156,6 +176,7 @@ async def _descobrir_ate_validar(
     db_path: str | None,
     matriz: bool = False,
     continuar: bool = False,
+    perfil: PerfilICP | None = None,
 ) -> tuple[Any, str, list[dict[str, Any]], dict[str, Any]]:
     """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads ainda não processados.
     Devolve (conn, run_id, validados do lote, `lote`/`descobertos`/`validados`/`esgotou_busca`).
@@ -177,10 +198,12 @@ async def _descobrir_ate_validar(
     }
     if matriz:
         params["matriz"] = True  # só quando usada, para não mudar o run_id de execuções antigas
+    if perfil is not None and perfil.exclusoes_ativas():
+        params["perfil_excluir"] = perfil.exclusoes_ativas()  # outro corte eliminatório = outra consulta
     run_id = db_module.make_run_id(params)
     db_module.ensure_run(conn, run_id, params, TARGET_LEADS)
 
-    await _validar_pendentes(conn, run_id, icp)  # retomada de execução interrompida no meio da validação
+    await _validar_pendentes(conn, run_id, icp, perfil)  # retomada de execução interrompida no meio da validação
 
     lote_entregue = db_module.lote_atual(conn, run_id)
     if lote_entregue and not continuar:
@@ -200,7 +223,7 @@ async def _descobrir_ate_validar(
                 break
             alvo = min(teto_descobertos, descobertos_ate_agora + faltam)
             await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
-            await _validar_pendentes(conn, run_id, icp)
+            await _validar_pendentes(conn, run_id, icp, perfil)
         db_module.atribuir_lote(conn, run_id, lote, TARGET_LEADS)
 
     validados = db_module.list_lote(conn, run_id, lote)
@@ -220,7 +243,7 @@ async def _descobrir_ate_validar(
     return conn, run_id, validados, info
 
 
-async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP) -> None:
+async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP, perfil: PerfilICP | None) -> None:
     """S3 dos leads ainda em "descoberto"; os já validados/descartados (retomada) são pulados."""
     descobertos = db_module.list_leads(conn, run_id, status="descoberto")
     total = len(descobertos)
@@ -229,7 +252,7 @@ async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP) -> Non
     for posicao, lead in enumerate(descobertos, start=1):
         cnpj = lead["cnpj"]
         try:
-            resultado = await validate_lead(cnpj, icp)
+            resultado = await validate_lead(cnpj, icp, perfil=perfil)
         except NotFoundError:
             log.warning("S3 %d/%d %s: CNPJ não encontrado (404)", posicao, total, cnpj)
             db_module.upsert_lead(
@@ -297,6 +320,7 @@ async def _enriquecer_um(
     client: httpx.AsyncClient,
     semaforo: asyncio.Semaphore,
     progresso: _Progresso,
+    perfil: PerfilICP | None = None,
 ) -> dict[str, Any]:
     enrichment = None
     if candidate_url:
@@ -314,7 +338,7 @@ async def _enriquecer_um(
                 client=client,
             )
 
-    score = compute_score(resultado, enrichment)
+    score = compute_score(resultado, enrichment, perfil)
     lead = build_lead_json(resultado, score, enrichment)
     if candidate_url:
         progresso.feitos += 1
@@ -331,6 +355,7 @@ async def _enriquecer_e_pontuar(
     sites: dict[str, str],
     *,
     concorrencia: int = ENRIQUECIMENTO_CONCORRENCIA,
+    perfil: PerfilICP | None = None,
 ) -> list[dict[str, Any]]:
     """S4+S6: para cada resultado validado, enriquece (quando há site candidato em
     `sites`) e pontua. Devolve os JSONs de lead, na mesma ordem de `resultados`, ainda
@@ -351,7 +376,7 @@ async def _enriquecer_e_pontuar(
         return list(
             await asyncio.gather(
                 *(
-                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo, progresso)
+                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo, progresso, perfil)
                     for resultado in resultados
                 )
             )
@@ -369,6 +394,7 @@ def descobrir(
     matriz: bool = False,
     db_path: str | None = None,
     continuar: ContinuarOpt = False,
+    perfil_arquivo: PerfilOpt = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -383,6 +409,7 @@ def descobrir(
     """
     _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
+    perfil, arquivo_perfil = _carregar_perfil_ou_exit(perfil_arquivo)
 
     async def _pipeline() -> dict[str, Any]:
         conn, run_id, validados, info = await _descobrir_ate_validar(
@@ -396,10 +423,11 @@ def descobrir(
             db_path=db_path,
             matriz=matriz,
             continuar=continuar,
+            perfil=perfil,
         )
         leads = [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
         return {
-            "icp": _icp_resumo(icp),
+            "icp": _icp_resumo(icp, arquivo_perfil),
             "total": len(leads),
             "leads": leads,
             "descartados": _listar_descartados(conn, run_id),
@@ -422,6 +450,7 @@ def prospectar(
     matriz: bool = False,
     db_path: str | None = None,
     continuar: ContinuarOpt = False,
+    perfil_arquivo: PerfilOpt = None,
     sites_json: str | None = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
@@ -436,6 +465,7 @@ def prospectar(
     """
     _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
+    perfil, arquivo_perfil = _carregar_perfil_ou_exit(perfil_arquivo)
 
     sites = _ler_sites_json_ou_exit(sites_json)
 
@@ -451,22 +481,23 @@ def prospectar(
             db_path=db_path,
             matriz=matriz,
             continuar=continuar,
+            perfil=perfil,
         )
 
         resultados: list[ValidacaoResult] = []
         for v in validados:
             # reconstrói o ValidacaoResult completo (flags/cnae_match) a partir do
             # detalhe já persistido — sem nova chamada de rede (raw= evita o fetch)
-            resultado = await validate_lead(v["cnpj"], icp, raw=v["detalhe"])
+            resultado = await validate_lead(v["cnpj"], icp, raw=v["detalhe"], perfil=perfil)
             if resultado.status != "validado":
                 continue  # ICP mudou entre execuções — não deveria acontecer, mas não quebra
             resultados.append(resultado)
 
         marcar_contadores(resultados)
         aplicar_sinais(resultados)
-        leads_json = await _enriquecer_e_pontuar(resultados, sites)
+        leads_json = await _enriquecer_e_pontuar(resultados, sites, perfil=perfil)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
-        saida["icp"] = _icp_resumo(icp)
+        saida["icp"] = _icp_resumo(icp, arquivo_perfil)
         saida["descartados"] = _listar_descartados(conn, run_id)
         saida.update(info)
         return saida
@@ -533,6 +564,7 @@ def validar_lista(
     arquivo: str = typer.Option(..., help="JSON com a lista de CNPJs/nomes"),
     situacao: str = "ativa",
     sites_json: str | None = None,
+    perfil_arquivo: PerfilOpt = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -549,6 +581,7 @@ def validar_lista(
     itens = itens[:MAX_ITENS_LISTA]
 
     sites = _ler_sites_json_ou_exit(sites_json)
+    perfil, _ = _carregar_perfil_ou_exit(perfil_arquivo)
 
     codigo_situacao = icp_module.SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao)
     icp = icp_module.ICP(nicho="lista", cnaes=[], situacao=codigo_situacao)
@@ -585,7 +618,7 @@ def validar_lista(
             vistos.add(cnpj)
 
             try:
-                resultado = await validate_lead(cnpj, icp)
+                resultado = await validate_lead(cnpj, icp, perfil=perfil)
             except NotFoundError:
                 descartados.append({"cnpj": cnpj, "motivo": MOTIVO_404})
                 log.warning("S3 %d/%d %s → CNPJ não encontrado (404)", posicao, total_itens, cnpj)
@@ -598,7 +631,7 @@ def validar_lista(
 
         marcar_contadores(validados)
         aplicar_sinais(validados)
-        leads_json = await _enriquecer_e_pontuar(validados, sites)
+        leads_json = await _enriquecer_e_pontuar(validados, sites, perfil=perfil)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = descartados
         saida["nao_resolvidos"] = nao_resolvidos

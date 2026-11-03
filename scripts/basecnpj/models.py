@@ -146,6 +146,10 @@ class CNPJDetalhe(BaseModel):
         primeiro = self.telefones[0]
         return f"({primeiro.ddd}) {primeiro.numero}" if primeiro.ddd else primeiro.numero
 
+    def eh_mei(self) -> bool:
+        simples = getattr(self, "simples", None)  # `simples{opcao_simples, opcao_mei}` vem como campo extra
+        return isinstance(simples, dict) and simples.get("opcao_mei") is True
+
     def cnae_principal(self) -> str | None:
         return next((c.cnae for c in self.cnaes if c.tipo == "Principal"), None)
 

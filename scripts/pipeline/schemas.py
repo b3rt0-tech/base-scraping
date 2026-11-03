@@ -59,6 +59,7 @@ class ScoreBreakdown(_Modelo):
     qualidade_contato: float
     presenca_digital: float
     saude_cadastral: float
+    fit: float | None = None  # só com perfil (`icp.yaml`) que dá peso ao fit
     total: float
 
 
@@ -100,6 +101,7 @@ class Icp(_Modelo):
     nicho: str
     entrada_dicionario: str | None = None
     cnaes: list[str]
+    perfil: str | None = None  # arquivo `icp.yaml` aplicado (fit, pesos, exclusões)
 
 
 class LeadResumo(_Modelo):

@@ -20,3 +20,6 @@ build/
 # runtime) e tem linguagem de processo interno ("Passo 4 concluído" etc.) que não
 # faz sentido pra quem só quer instalar e usar a skill publicada
 ARCTETURE.md
+
+# perfil do cliente ideal do usuário (estratégia comercial): o versionado é o icp.example.yaml
+icp.yaml
