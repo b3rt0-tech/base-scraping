@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -71,10 +72,21 @@ async def enrich(
             site=home["url"], site_matched=True, erro=f"falha_ao_extrair_contatos: {type(exc).__name__}: {exc}"
         )
 
-    emails_verificados = [
-        verify_email(email, found_on_official_site=True, email_cadastral=email_cadastral, mx_resolver=mx_resolver)
-        for email in sorted(contatos.emails)
-    ]
+    # a checagem de MX é DNS síncrono: em thread, para não travar os outros leads que rodam em paralelo
+    emails_verificados = list(
+        await asyncio.gather(
+            *(
+                asyncio.to_thread(
+                    verify_email,
+                    email,
+                    found_on_official_site=True,
+                    email_cadastral=email_cadastral,
+                    mx_resolver=mx_resolver,
+                )
+                for email in sorted(contatos.emails)
+            )
+        )
+    )
     context = detect_context_signals(home["text"])
 
     return EnrichmentResult(

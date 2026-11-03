@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 import httpx
 import pytest
 
@@ -306,3 +308,17 @@ async def test_enrich_home_com_erro_http_vira_falha(respx_mock, status):
     assert resultado.erro == f"http_{status}"
     assert not resultado.site_matched
     assert resultado.emails == []
+
+
+async def test_enrich_verifica_mx_fora_do_event_loop(respx_mock):
+    mock_site(respx_mock, {"/": HOME_HTML, "/contato": CONTATO_HTML, "/sobre-nos/": "<p>sobre</p>"})
+    threads: list[threading.Thread] = []
+
+    def resolver(dominio):
+        threads.append(threading.current_thread())
+        return ["mx.fake"]
+
+    resultado = await enrich(f"{SITE}/", scraping_http.ScrapeSession(), cnpj=CNPJ_PADRAO, mx_resolver=resolver)
+
+    assert resultado.emails and threads
+    assert all(thread is not threading.main_thread() for thread in threads)  # DNS síncrono não trava o loop
