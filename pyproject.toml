@@ -1,6 +1,6 @@
 [project]
 name = "base-scraping"
-version = "0.1.0"
+version = "0.2.0"
 description = "Captação e enriquecimento de leads B2B brasileiros, construído sobre o BaseCNPJ"
 requires-python = ">=3.11"
 dependencies = [
