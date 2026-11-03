@@ -1,360 +1,291 @@
-# 🧭 base-scraping
-
-**Captação e enriquecimento de leads B2B brasileiros**, construído sobre o [BaseCNPJ](https://basecnpj.app) — roda como *skill* do [Claude Code](https://claude.com/claude-code) ou como CLI standalone.
-
-<p>
-  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white">
-  <img alt="uv" src="https://img.shields.io/badge/deps-uv-6340ac">
-  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-informational">
-  <img alt="Saída" src="https://img.shields.io/badge/output-JSON-black?logo=json">
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="base-scraping: leads B2B brasileiros validados na Receita Federal, priorizados e qualificados por um consultor de vendas" width="100%">
 </p>
 
-> 💬 Você pede em linguagem natural — *"óticas ativas na região da Lapa, em São Paulo capital"* — e recebe uma lista de empresas **reais**, validadas contra o cadastro oficial da Receita Federal, com contato e site verificados quando disponíveis.
+<p align="center">
+  <a href="https://github.com/b3rt0-tech/base-scraping/releases/tag/v0.2.0"><img alt="Versão 0.2.0" src="https://img.shields.io/badge/vers%C3%A3o-0.2.0-5E6AD2?style=flat-square&labelColor=0d1421"></a>
+  <img alt="Skill do Claude Code" src="https://img.shields.io/badge/skill-Claude%20Code-FF8A4C?style=flat-square&labelColor=0d1421">
+  <img alt="Sobre o BaseCNPJ" src="https://img.shields.io/badge/dados-BaseCNPJ-5E6AD2?style=flat-square&labelColor=0d1421">
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-5E6AD2?style=flat-square&labelColor=0d1421&logo=python&logoColor=white">
+  <img alt="432 testes" src="https://img.shields.io/badge/testes-432-10b981?style=flat-square&labelColor=0d1421">
+  <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-5E6AD2?style=flat-square&labelColor=0d1421">
+</p>
 
-```
-$ uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio Campinas --porte ME
-
-{
-  "total": 8,
-  "leads": [ { "razao_social": "CLINICA ODONTOLOGICA QUILES LTDA", "situacao_cadastral": "Ativa", "score": 58.0, ... } ]
-}
-```
-
----
-
-## 📚 Sumário
-
-- [🧠 Como funciona](#-como-funciona)
-- [🔁 O pipeline, estágio por estágio](#-o-pipeline-estágio-por-estágio)
-- [📦 Instalação](#-instalação)
-- [🔑 Token do BaseCNPJ](#-token-do-basecnpj)
-- [🚀 Como usar](#-como-usar)
-- [📊 Exemplo de saída](#-exemplo-de-saída)
-- [⚠️ Limites de design](#️-limites-de-design)
-- [🗂️ Estrutura do projeto](#️-estrutura-do-projeto)
-- [🔒 LGPD e compliance](#-lgpd-e-compliance)
-- [📄 Licença](#-licença)
+<p align="center">
+  <a href="#começar">Começar</a> ·
+  <a href="#new-leads">/new-leads</a> ·
+  <a href="#cli">CLI</a> ·
+  <a href="#perfil-do-cliente-ideal">Perfil ICP</a> ·
+  <a href="#planilha-para-o-crm">Planilha</a> ·
+  <a href="#aprender-com-resultados">Resultados</a> ·
+  <a href="#lgpd-e-compliance">LGPD</a>
+</p>
 
 ---
 
-## 🧠 Como funciona
+Você diz **quem é o seu cliente** e **o que você vende**. O base-scraping devolve até 100 empresas reais, ativas na Receita Federal, já prontas para o vendedor trabalhar:
 
-O **BaseCNPJ é a espinha dorsal** do projeto: ele define quem é lead e valida quem continua no funil. O scraping é periferia — só preenche o que o cadastro oficial não tem (site, e-mail comercial vivo, redes sociais).
+- **Quem decide**: o sócio-administrador, tirado do quadro societário.
+- **Por onde falar**: o melhor canal direto (WhatsApp provável, e-mail confirmado no site, telefone). O contato do escritório de contabilidade nunca conta como canal.
+- **Por que está na lista**: prioridade **A/B/C**, score com motivos que somam os pontos e alertas que já dizem o que fazer.
+- **O que dizer**: o Claude, como consultor de vendas, dá o veredito de cada lead e escreve a **1ª mensagem** de cada lead A.
 
-```
-🗂️  BaseCNPJ  =  QUEM é a empresa   (verdade cadastral, oficial, estruturada)
-🌐  Scraping   =  COMO falar com ela hoje (verdade de mercado, volátil)
-```
+Sem dado inventado: todo campo traz de onde veio e quando (`proveniencia`).
 
-Essa separação é o que torna o resultado confiável: **se o scraping falhar num lead, o lead continua existindo e utilizável** — só com menos campos preenchidos. Nenhum dado inventado, nenhum lead perdido por causa de um site fora do ar.
+<p align="center">
+  <img src="docs/assets/boletim.svg" alt="Rodada real com dentistas em Campinas/SP: 100 leads validados, 100% com decisor, 85% com canal direto, prioridade A/B/C 42/42/16, nenhum empate no top 20" width="100%">
+</p>
 
-```
- "dentista em Campinas"
-        │
-        ▼
- 🔤  nicho → CNAE (references/cnae.md)         8630-5/04
-        │
-        ▼
- 🔎  busca avançada no BaseCNPJ (S0→S1)        até 100 validados, paginado
-        │
-        ▼
- ✅  validação cadastral (S3)                  situação ativa, CNAE, porte...
-        │
-        ▼
- 🌐  site oficial + e-mail + contato (S4)       scraping, opcional
-        │
-        ▼
- 🏆  score + JSON final com proveniência (S6)
-```
+## Como funciona
 
----
+<p align="center">
+  <img src="docs/assets/pipeline.svg" alt="Pipeline: nicho para CNAE, descoberta, validação, sinais, enriquecimento, score A/B/C e consultor" width="100%">
+</p>
 
-## 🔁 O pipeline, estágio por estágio
+O **[BaseCNPJ](https://basecnpj.app) é a espinha dorsal**: ele define quem é lead e valida quem continua no funil. O scraping só completa o que o cadastro não tem (site, e-mail comercial vivo, redes sociais). Se o scraping falhar, o lead continua na lista, só com menos campos.
 
-| Estágio | O que faz | Rota/fonte |
+| Etapa | O que faz | Fonte |
 |---|---|---|
-| **S0** — ICP | Traduz o pedido em filtros estruturados (nicho→CNAE, cidade, porte) | `route=status` (preflight) |
-| **S1** — Descoberta | Pagina a busca avançada e valida em rodadas até **100 leads validados** (descartes não encolhem a entrega; teto de segurança de 500 descobertos) | `route=avancada` |
-| **S2** — Resolução | Resolve candidatos sem CNPJ (comando `validar-lista`); desempate só por UF, e só na `busca` | `route=sugestao`, `route=busca` |
-| **S3** — Validação | Filtra por situação cadastral, CNAE, porte; sinaliza empresa nova | `route=cnpj` |
-| **S4** — Enriquecimento | Valida o site oficial, extrai contato, verifica e-mail em 5 níveis | scraping externo |
-| **S6** — Score e saída | Pontua (0-100) com breakdown por dimensão, exporta JSON com proveniência | — |
+| **Nicho → CNAE** | Traduz o pedido em filtros: nicho → CNAE (99 nichos, 119 CNAEs em [`references/cnae.md`](references/cnae.md)), cidade, porte, bairro por CEP | dicionário |
+| **Descoberta** | Pagina a busca avançada e valida em rodadas até **100 leads validados** (teto de segurança de 500 descobertos). Uma vaga por empresa, mesmo com várias filiais | `route=avancada` |
+| **Validação** | Situação cadastral, CNAE, porte; tira quem já está no CRM (`--excluir`) e quem já foi trabalhado | `route=cnpj` |
+| **Sinais** | Decisor, WhatsApp provável (celular no formato antigo vira `+55DDD9…`), MEI, unidades, anos de mercado e contato de contador | `route=cnpj` |
+| **Enriquecimento** | Confirma o site oficial (pelo e-mail cadastral ou pela busca web), extrai contatos e verifica e-mail em 5 níveis | scraping |
+| **Score A/B/C** | Pontua de 0 a 100 com o perfil `icp.yaml`; cada ponto tem um motivo | — |
+| **Consultor** | O Claude analisa ICP e produto, dá o veredito de cada lead e escreve a 1ª mensagem | `--qualificacoes` |
 
-> ℹ️ Não existe **S5** ativo nesta versão — a expansão por rede societária (`route=rede`) já está implementada no cliente, mas fica reservada pra uma fase futura. Ver [Limites de design](#️-limites-de-design).
+Os scripts nunca chamam um LLM: são determinísticos e testados. Quem interpreta e julga é o Claude, seguindo [`references/consultoria.md`](references/consultoria.md).
 
----
+## Começar
 
-## 📦 Instalação
-
-Pré-requisito: [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
+Pré-requisitos: [`uv`](https://docs.astral.sh/uv/getting-started/installation/) e uma conta no [BaseCNPJ](https://basecnpj.app) no plano **Business** (a busca avançada exige esse plano).
 
 ```bash
-git clone <url-do-repo> base-scraping
+git clone https://github.com/b3rt0-tech/base-scraping.git
 cd base-scraping
 uv sync
+
+cp .env.example .env          # preencha BASECNPJ_TOKEN=<seu token>
 ```
 
-## 🔑 Token do BaseCNPJ
+O token é gerado no painel do BaseCNPJ, em **API Keys**. O `.env` é lido da raiz da skill, então o comando funciona de qualquer pasta, e nunca entra no repositório. Sem token, o CLI responde `erro: token_ausente`; token recusado é `erro: token_invalido`.
 
-1. Crie uma conta no [BaseCNPJ](https://basecnpj.app) — plano **Business** (busca avançada e rede societária exigem esse plano).
-2. No painel, vá em **API Keys** e gere um token.
-3. Copie o template e preencha:
-   ```bash
-   cp .env.example .env
-   # edite .env e preencha BASECNPJ_TOKEN=<seu-token>
-   ```
+### Instalar como skill do Claude Code
 
-📍 O `.env` é lido da **raiz da skill** (e, como fallback, do diretório atual), então o comando funciona de qualquer pasta. Sem token o CLI responde `erro: token_ausente`; token recusado pela API é `erro: token_invalido`.
-
-🔐 O token **nunca** entra no repositório — `.env` está no `.gitignore`, só `.env.example` é versionado.
-
----
-
-## 🚀 Como usar
-
-### 🧩 Opção A — como skill do Claude Code
-
-Claude Code carrega skills a partir de um arquivo `SKILL.md` colocado numa pasta específica. **Não existe instalador automático** que baixe e configure isso sozinho só porque alguém pede "instala essa skill" — o passo que importa de verdade é copiar a pasta pro lugar certo.
-
-1. Clone este repositório em qualquer lugar:
-   ```bash
-   git clone <url-do-repo> base-scraping
-   ```
-2. Copie a pasta pro diretório de skills do Claude Code — escolha uma das duas:
-
-   | Escopo | Onde fica disponível | Comando |
-   |---|---|---|
-   | 🌍 **Pessoal** | Qualquer projeto que você abrir | `mkdir -p ~/.claude/skills && cp -r base-scraping ~/.claude/skills/base-scraping` |
-   | 📁 **Só este projeto** | Só dentro do repo onde você colar | `mkdir -p .claude/skills && cp -r base-scraping .claude/skills/base-scraping` |
-
-3. Entre na pasta copiada e instale as dependências:
-   ```bash
-   cd ~/.claude/skills/base-scraping   # ou .claude/skills/base-scraping, se for por projeto
-   uv sync
-   ```
-4. Configure o token — ver [🔑 Token do BaseCNPJ](#-token-do-basecnpj).
-5. Abra uma sessão **nova** do Claude Code (ou reinicie a atual) — skills são carregadas no início da sessão.
-6. Teste pedindo algo como:
-   > 💬 *"me traz 10 dentistas ativos em Campinas, porte ME"*
-
-> ⚠️ **Só dizer "instala essa skill" pro Claude Code, sem mais contexto, não é confiável.** Ou você segue o passo a passo acima manualmente, ou pede explicitamente pra ele rodar os comandos (ele tem acesso a bash, então consegue clonar/copiar/`uv sync` se instruído). É uma escolha de design: esta é uma "skill simples" (clonar + copiar pasta), sem manifesto de plugin/marketplace.
-
-### ⚡ `/new-leads` — prospecção guiada
-
-Instale a skill e o comando com links simbólicos (o comando lê a skill em `~/.claude/skills/base-scraping`):
+Ligue a pasta e o comando `/new-leads` ao Claude Code com links simbólicos (um `git pull` atualiza os dois):
 
 ```bash
+mkdir -p ~/.claude/skills ~/.claude/commands
 ln -s "$(pwd)" ~/.claude/skills/base-scraping
-mkdir -p ~/.claude/commands && ln -s "$(pwd)/commands/new-leads.md" ~/.claude/commands/new-leads.md
+ln -s "$(pwd)/commands/new-leads.md" ~/.claude/commands/new-leads.md
 ```
 
-Abra uma **sessão nova** do Claude Code e digite `/new-leads`. Ele pergunta, nesta ordem:
+Prefere copiar? `cp -r . ~/.claude/skills/base-scraping` (ou `.claude/skills/base-scraping` para valer só num projeto) e rode `uv sync` lá dentro. Depois, abra uma **sessão nova** do Claude Code: skills são carregadas no início da sessão.
 
-1. **1-) Qual o ICP/Nicho?** (ex.: "clínicas odontológicas em Campinas")
-2. **2-) Qual o produto?** (ex.: "software de agenda e prontuário, R$ 300/mês")
+## /new-leads
 
-A partir daí, o Claude age como **consultor de vendas** (`references/consultoria.md`):
-- analisa o ICP e o produto e monta o perfil
-- minera os leads e completa os sites dos melhores
-- dá o veredito de cada lead (válido, talvez, descartar), com motivo e abordagem
-- escreve a 1ª mensagem dos leads A
-- entrega a lista priorizada e a planilha
+Digite `/new-leads`. O Claude faz só duas perguntas, nesta ordem:
 
-Ele só volta a perguntar se faltar a cidade/UF, se o nicho for ambíguo ou se o token não estiver configurado. Mesmo sem o arquivo de comando, escrever `/new-leads` ativa o fluxo pela skill.
+```text
+1-) Qual o ICP/Nicho?     → clínicas odontológicas em Campinas
+2-) Qual o produto?       → software de agenda e prontuário, R$ 300/mês
+```
 
-### 💻 Opção B — CLI direto
+A partir daí, ele age como **consultor de vendas** e segue sozinho até a entrega:
 
-Três comandos, todos sempre devolvendo **JSON** no stdout:
+1. **Analisa** o ICP (nicho → CNAEs, cidade, porte) e o produto (quem decide, dor, ticket, contra-indicações).
+2. **Monta o perfil** `icp.yaml` e, se houver resultados registrados, ajusta o perfil pelo que converteu.
+3. **Minera** os 100 leads e procura o site dos que vieram sem canal.
+4. **Qualifica** cada lead (`valido`, `talvez`, `descartar`) com motivo e abordagem, e escreve a **1ª mensagem** dos leads A.
+5. **Entrega** o resumo do lote, a tabela priorizada e a planilha `.xlsx`.
+
+Ele só volta a perguntar se faltar a cidade/UF, se o nicho for ambíguo ou se o token não estiver configurado. Fora do `/new-leads`, pedidos em linguagem natural também ativam a skill: *"me traz dentistas ativos em Campinas, porte ME"*.
+
+## CLI
+
+Todos os comandos devolvem **JSON** no stdout. O progresso vai para o stderr.
 
 ```bash
-# 🔍 S0→S3 — descoberta + validação cadastral, sem scraping
+# descoberta + validação cadastral, sem scraping
 uv run python -m scripts.pipeline_cli descobrir "dentista" --uf SP --municipio Campinas --porte ME
 
-# 🏆 S0→S4→S6 — pipeline completo, com score e enriquecimento de contato
-uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio Campinas --porte ME
+# pipeline completo: sinais, enriquecimento, score A/B/C
+uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio Campinas --perfil icp.yaml
 
-# 📋 S2→S3→S4→S6 — valida uma lista própria (CNPJs ou nomes), sem descoberta
+# valida uma lista própria (CNPJs ou nomes), sem descoberta
 uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
+
+# próximos 100 da mesma consulta, sem repetir
+uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio Campinas --continuar
 ```
 
-`lista.json` é uma lista de `{"cnpj": "..."}` ou `{"nome": "...", "uf": "SP", "municipio": "Campinas"}`, com teto de 100 itens (o excedente é ignorado e informado em `aviso`). Nomes são resolvidos por `route=sugestao`/`route=busca`; match ambíguo vai para `nao_resolvidos` (nunca chuta). A validação não checa CNAE. A saída traz `total`, `leads`, `descartados` e `nao_resolvidos`.
+`lista.json` é uma lista de `{"cnpj": "..."}` ou `{"nome": "...", "uf": "SP", "municipio": "Campinas"}`, com até 100 itens. Nomes ambíguos vão para `nao_resolvidos`: o pipeline nunca chuta.
 
-> ⚠️ O desempate de nomes ambíguos só funciona por **UF**, e só na `busca`: a API real não devolve `uf` na `sugestao` nem `municipio` em nenhuma das duas rotas.
-
-**Flags disponíveis** (ambos os comandos):
+<details>
+<summary><b>Todas as flags</b></summary>
 
 | Flag | Efeito |
 |---|---|
-| `--uf` | UF do cadastro (ex. `SP`) |
-| `--municipio` | nome do município |
+| `--uf` / `--municipio` | UF e município do cadastro |
 | `--porte` | `ME`, `EPP` ou `demais` |
-| `--arquivo` | (só em `validar-lista`) JSON com a lista de CNPJs/nomes |
-| `--cep` | 📍 prefixo de CEP — filtra por **bairro/região** dentro de um município (ex. `--cep 0507` cobre a região da Lapa em São Paulo capital) |
-| `--matriz` | só estabelecimentos **matriz** (exclui filiais; envia `matriz_filial=1` na busca avançada) |
-| `--continuar` | (em `descobrir` e `prospectar`) entrega os **próximos 100 validados** da mesma consulta, sem repetir CNPJ já entregue. Sem a flag, repetir a consulta devolve sempre o lote 1. A saída informa `lote` |
-| `--situacao` | (também em `validar-lista`) situação cadastral desejada (padrão: `ativa`) |
+| `--cep` | prefixo de CEP: filtra por **bairro/região** (ex. `--cep 0507` cobre a região da Lapa, em São Paulo) |
+| `--matriz` | só estabelecimentos matriz |
+| `--situacao` | situação cadastral desejada (padrão: `ativa`) |
+| `--continuar` | entrega os **próximos 100 validados** da mesma consulta. Sem a flag, a mesma consulta devolve sempre o lote 1. A saída informa `lote` |
+| `--perfil` | `icp.yaml` com o perfil do cliente ideal. Padrão: `icp.yaml` na raiz da skill, se existir |
+| `--excluir` | arquivo do CRM (`.csv`, `.txt` ou `.json`, sem preparo) com CNPJs e/ou e-mails/domínios. CNPJ exclui a empresa inteira (todas as filiais); domínio exclui quem tem o mesmo domínio no e-mail cadastral (Gmail/Hotmail são ignorados). A descoberta repõe as vagas. A saída informa `excluidos` |
+| `--sites-json` | `{"<cnpj>": "<url candidata>"}` para enriquecer pelo site. Tem prioridade sobre o site automático pelo e-mail cadastral |
+| `--qualificacoes` | `{"<cnpj>": {"veredito": "valido\|talvez\|descartar", "motivo", "abordagem"?, "mensagem"?}}`: o veredito do consultor. Entra em `qualificacao`, na ordenação e na planilha |
+| `--formato` / `--saida` / `--separador` | `csv` ou `xlsx` grava a planilha e o stdout traz só o resumo. CSV em UTF-8 com BOM, separador `,` (CRM) ou `;` (Excel em português) |
+| `--arquivo` | (só em `validar-lista`) a lista de CNPJs/nomes |
 | `--db-path` | onde fica o checkpoint SQLite (padrão: `.cache/pipeline.sqlite3`) |
-| `--verbose` / `-v` | detalhe de cada lead no **stderr** (o stdout continua só com o JSON) |
-| `--quiet` / `-q` | só avisos e erros no stderr (sem progresso) |
-| `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
-| `--excluir` | arquivo do CRM (`.csv`, `.txt` ou `.json`, sem preparo) com CNPJs e/ou e-mails/domínios de quem já é cliente ou lead em andamento. CNPJ exclui a **empresa inteira** (todas as filiais); domínio exclui quem tem o mesmo domínio no e-mail cadastral (Gmail/Hotmail são ignorados). Os excluídos não aparecem nem em `descartados`, e a descoberta repõe outros para manter os 100. A saída informa `excluidos` |
-| `--formato` / `--saida` / `--separador` | (em `prospectar` e `validar-lista`) `csv` ou `xlsx` grava a planilha (padrão `leads-<nicho>-<cidade>-loteN.<ext>`) e o stdout traz só o resumo em JSON (`arquivo`, `total`, `resumo`…). CSV em UTF-8 com BOM, separador `,` (importação de CRM) ou `;` (Excel em português) |
-| `--qualificacoes` | (em `prospectar` e `validar-lista`) JSON `{"<cnpj>": {"veredito": "valido\|talvez\|descartar", "motivo", "abordagem"?, "mensagem"?}}` com o veredito do consultor de vendas (o Claude; ver `references/consultoria.md`). Entra em `qualificacao`, na ordenação e nas colunas Veredito/Abordagem/1ª mensagem da planilha |
-| `--perfil` | `icp.yaml` com o perfil do cliente ideal (ver abaixo). Padrão: `icp.yaml` na raiz da skill, se existir |
+| `--verbose` / `--quiet` | mais ou menos detalhe no stderr |
 
-Sem `--sites-json`, `prospectar` tenta sozinho o **domínio do e-mail cadastral** quando ele é da empresa (não Gmail/Hotmail etc., não de contador) e só mantém o site se ele confirmar ser a empresa (`site_origem: email_cadastral`). Em dentistas de Campinas isso confirmou 10 sites em 100 leads sem nenhuma busca web. Para os demais, a URL candidata vem da busca web da skill (ver `SKILL.md`) via `--sites-json`, que tem prioridade.
+</details>
 
-### 📈 Aprender com resultados
+Rodar o mesmo comando de novo é seguro e rápido: o checkpoint SQLite e o cache evitam refazer chamadas.
 
-```bash
-# o que aconteceu com os leads trabalhados (CSV/JSON com cnpj, status, motivo)
-uv run python -m scripts.pipeline_cli registrar-resultado --arquivo resultados.csv
-# funil por prioridade, CNAE, porte, cidade e sinal (MEI, WhatsApp, multiunidade, contador)
-uv run python -m scripts.pipeline_cli relatorio-resultados
-```
+## Perfil do cliente ideal
 
-Status: `contatado`, `respondeu`, `reuniao`, `ganho`, `perdido` e `nao_e_fit`. Também valem variações em português, como "Reunião marcada" e "sem interesse". CNPJ com resultado **não volta** como lead novo (`ja_trabalhados` na saída). O relatório é a base para ajustar o `icp.yaml`. O banco guarda só o CNPJ e atributos da empresa, sem dado pessoal.
+O nicho diz **quem buscar**; o perfil diz **quem vale mais para o seu produto**. Copie [`icp.example.yaml`](icp.example.yaml) para `icp.yaml` (ou passe `--perfil arquivo.yaml`) e ajuste:
 
-### 📤 Planilha para o CRM (`--formato csv|xlsx`)
+- **`pesos`**: as dimensões do score, que somam 100, incluindo `fit` (encaixe com o perfil).
+- **Critérios de fit**: `capital_social`, `anos_de_mercado` e `unidades` em faixas `minimo`/`ideal`; `portes_preferidos`, `municipios_prioritarios`, `cnaes_prioritarios`, `tecnologias` do site e `whatsapp`.
+- **`excluir`**: critérios eliminatórios (`mei`, `empresa_nova`). A descoberta repõe as vagas.
+- **`prioridade`**: os cortes de score para A e B.
+
+A prioridade é **A** com score acima do corte, canal direto e decisor; **C** sem canal direto ou com score baixo; **B** no resto. Em dentistas de Campinas, o top 20 passou de 1 score distinto (todos empatados em 64) para 20 distintos com o perfil de exemplo.
+
+## Planilha para o CRM
 
 ```bash
 uv run python -m scripts.pipeline_cli prospectar dentista --uf SP --municipio Campinas --formato xlsx
 ```
 
-Uma linha por lead, já na ordem de trabalho (prioridade A primeiro). As colunas são sempre as mesmas, então o mapeamento no CRM é feito uma vez só:
+Uma linha por lead, na ordem de trabalho (veredito, depois prioridade, depois score). As colunas são sempre as mesmas, então o mapeamento no CRM é feito uma vez só:
 
 | Coluna da planilha | HubSpot (Empresa / Contato) | Pipedrive (Organização / Pessoa) |
 |---|---|---|
 | Empresa | Company name | Organization name |
 | CNPJ | propriedade customizada `cnpj` | campo customizado `CNPJ` |
-| Cidade / UF | City / State/Region | Address (cidade, estado) |
+| Cidade / UF | City / State/Region | Address |
 | Decisor | Contact: First + Last name | Person name |
-| Cargo do decisor | Contact: Job title | Person: campo customizado `Cargo` |
-| WhatsApp | Contact: Mobile phone number | Person: Phone (tipo celular) |
+| Cargo do decisor | Contact: Job title | Person: campo `Cargo` |
+| WhatsApp | Contact: Mobile phone number | Person: Phone (celular) |
 | E-mail | Contact: Email | Person: Email |
 | Telefone | Company: Phone number | Organization: campo `Telefone` |
-| Site | Company domain name / Website URL | Organization: campo `Site` |
+| Site | Company domain name | Organization: campo `Site` |
 | Prioridade, Score, Veredito | propriedades customizadas (ou Lead status) | Label / campos customizados |
-| Motivos, Alertas, Abordagem, 1ª mensagem | Note (nota na empresa) | Note |
+| Motivos, Alertas, Abordagem, 1ª mensagem | Note | Note |
 
-Dicas:
-- No HubSpot, importe como **Empresas e Contatos** num arquivo só, associados pela coluna Empresa.
-- No Pipedrive, importe como **Organizações e Pessoas**.
-- Para abrir direto no Excel em português, use `--formato xlsx` (ou `--formato csv --separador ";"`).
+No HubSpot, importe como **Empresas e Contatos** num arquivo só; no Pipedrive, como **Organizações e Pessoas**. Contato de contador não vai para as colunas E-mail e Telefone.
 
-Contato que o pipeline marcou como de contador **não** vai para as colunas E-mail e Telefone.
+## Aprender com resultados
 
-### 🎯 Perfil do cliente ideal (`icp.yaml`)
+```bash
+# o que aconteceu com os leads trabalhados (CSV/JSON com cnpj, status, motivo)
+uv run python -m scripts.pipeline_cli registrar-resultado --arquivo resultados.csv
 
-O nicho diz **quem buscar**; o perfil diz **quem vale mais para o seu produto**. Copie o [`icp.example.yaml`](icp.example.yaml) para `icp.yaml` (ou passe `--perfil arquivo.yaml`) e ajuste:
+# funil por prioridade, CNAE, porte, cidade e sinal (MEI, WhatsApp, multiunidade, contador)
+uv run python -m scripts.pipeline_cli relatorio-resultados
+```
 
-- `pesos`: as dimensões do score, que somam 100. Uma dimensão `fit` mede o encaixe com o perfil.
-- **Critérios de fit:**
-  - `capital_social`, `anos_de_mercado` e `unidades` em faixas `minimo`/`ideal`, contínuas, o que também desempata leads.
-  - `portes_preferidos`, `municipios_prioritarios`, `cnaes_prioritarios`, `tecnologias` (do site) e `whatsapp`.
-- `excluir`: critérios eliminatórios (`mei`, `empresa_nova`). O lead é descartado na validação e a descoberta repõe outro.
-- `prioridade`: os cortes de score para A/B/C.
+Status: `contatado`, `respondeu`, `reuniao`, `ganho`, `perdido` e `nao_e_fit` (variações como "Reunião marcada" e "sem interesse" também valem). CNPJ com resultado **não volta** como lead novo (`ja_trabalhados` na saída). No `/new-leads`, o consultor lê o relatório e ajusta o perfil antes de minerar. O banco guarda só o CNPJ e atributos da empresa, sem dado pessoal.
 
-Sem perfil, o score é o padrão (30/30/20/20). Na prática, em dentistas de Campinas, o top 20 passou de **1 score distinto** (todos 64) para **20 distintos** com o perfil de exemplo. Empate restante desempata por fit, depois capital, depois tempo de mercado.
+## Exemplo de saída
 
-♻️ Rodar o mesmo comando de novo com os mesmos parâmetros é seguro e rápido: o checkpoint SQLite evita refazer chamadas já feitas.
-
----
-
-## 📊 Exemplo de saída
+Dados fictícios, no formato real de `prospectar` (trecho):
 
 ```json
 {
-  "total": 8,
+  "icp": { "nicho": "dentista", "entrada_dicionario": "dentista", "cnaes": ["8630504"], "perfil": "icp.yaml" },
+  "total": 100, "lote": 1, "validados": 100, "esgotou_busca": false, "excluidos": 3, "ja_trabalhados": 12,
+  "resumo": {
+    "total": 100, "por_prioridade": { "A": 42, "B": 42, "C": 16 },
+    "com_decisor": 100, "com_canal_direto": 85, "com_whatsapp": 54, "com_contato_de_contador": 21,
+    "por_veredito": { "valido": 61, "talvez": 27, "descartar": 12 }
+  },
   "leads": [
     {
-      "cnpj": "43292842000177",
-      "razao_social": "CLINICA ODONTOLOGICA QUILES LTDA",
-      "cnae_principal": "8630504",
-      "situacao_cadastral": "Ativa",
-      "endereco": { "municipio": "HOLAMBRA", "uf": "SP", "cep": "13825-000" },
-      "telefone_cadastral": "(19) 3802-1183",
-      "enriquecimento": { "status": "ok", "motivo": null },
-      "score": 58.0,
-      "score_breakdown": {
-        "aderencia_icp": 30.0,
-        "qualidade_contato": 8.0,
-        "presenca_digital": 0.0,
-        "saude_cadastral": 20.0
+      "cnpj": "12345678000195",
+      "razao_social": "CLINICA SORRISO LTDA",
+      "endereco": { "municipio": "CAMPINAS", "uf": "SP" },
+      "decisores": [{ "nome": "ANA SOUZA LIMA", "qualificacao": "Sócio-Administrador", "origem": "quadro_societario" }],
+      "site": "https://sorriso.com.br/",
+      "score": 94.0,
+      "prioridade": "A",
+      "motivos": [
+        "o nicho é a atividade principal (CNAE principal) (+30)",
+        "e-mail do site confere com o cadastral (+22)",
+        "site oficial confirmado (CNPJ/nome/telefone na página) (+12)"
+      ],
+      "canal_direto": true,
+      "melhor_canal": { "tipo": "whatsapp", "valor": "+5519999999999" },
+      "qualificacao": {
+        "veredito": "valido",
+        "motivo": "clínica estabelecida, decisora identificada e WhatsApp direto",
+        "abordagem": "WhatsApp para a Ana, citando a agenda online",
+        "mensagem": "Oi, Ana! Vi que a Sorriso atende em Campinas desde 2015..."
       },
-      "proveniencia": {
-        "razao_social": { "fonte": "basecnpj", "rota_ou_url": "route=cnpj", "timestamp": 1788869605.6 }
-      }
+      "flags": ["whatsapp_provavel"],
+      "proveniencia": { "razao_social": { "fonte": "basecnpj", "rota_ou_url": "route=cnpj", "timestamp": 1700000000.0 } }
     }
   ],
   "descartados": [{ "cnpj": "11111111000111", "motivo": "situacao_cadastral=04 (esperado 02)" }]
 }
 ```
 
-🧭 `icp` (em `descobrir` e `prospectar`) mostra qual entrada de `references/cnae.md` e quais CNAEs foram usados. Nicho que casa com mais de uma entrada (ex. `loja`) é recusado com `erro: nicho_ambiguo` em vez de escolher uma.
+O contrato é tipado (Pydantic, em [`scripts/pipeline/schemas.py`](scripts/pipeline/schemas.py)) e validado antes de ser impresso. O JSON Schema fica em [`schemas/lead.schema.json`](schemas/lead.schema.json) e a documentação de cada campo em [`schemas/lead.md`](schemas/lead.md).
 
-📋 `descartados` lista os leads que não entraram na saída (`cnpj` + `motivo`: ICP divergente ou CNPJ não encontrado), e `enriquecimento.status` (`ok`, `requer_navegador`, `match_fraco` ou `falha`) explica o resultado do scraping de cada lead com site candidato.
-
-📐 O formato da saída é um contrato tipado (`scripts/pipeline/schemas.py`, JSON Schema em [`schemas/lead.schema.json`](./schemas/lead.schema.json)), validado antes de ser impresso.
-
-🔎 Todo campo carrega sua origem em `proveniencia` — pra qualquer dado, dá pra responder **"de onde veio isso e quando"**.
-
----
-
-## ⚠️ Limites de design
+## Limites de design
 
 | Limite | Detalhe |
 |---|---|
-| 🔢 Teto de leads | **100 por execução**, fixo — a busca avançada para de paginar ao chegar nesse número |
-| 📤 Formato de saída | **Sempre JSON.** SQLite é só checkpoint interno, nunca é a saída final |
-| 🧩 Resolução de identidade (S2) | Só no `validar-lista`; `descobrir`/`prospectar` não passam por ela. Desempate de nome só por UF, e só na `busca` (a API não devolve município) |
-| 🕸️ Rede societária (S5) | Cliente já expõe `routes.rede()`, mas o pipeline não a chama — fica pra uma fase 2 |
-| 🎭 Sites com JavaScript | Marcados (`requer_navegador=true`) e pulados — sem Playwright nesta versão |
-| 🚫 LinkedIn | Fora de escopo — viola os Termos de Uso da plataforma e é o maior risco de LGPD do projeto |
+| Teto de leads | **100 validados por lote**; `--continuar` traz os próximos. Se a busca acabar antes, a saída avisa (`esgotou_busca`) |
+| Resolução por nome | Só no `validar-lista`, com desempate por UF (a API não devolve município na busca por nome) |
+| Rede societária | O cliente já expõe `routes.rede()`, mas o pipeline ainda não usa |
+| Sites com JavaScript | Marcados como `requer_navegador` e pulados (sem Playwright) |
+| Envio de mensagens | O consultor só redige; quem envia é o vendedor |
+| LinkedIn | Fora de escopo: viola os Termos de Uso e é o maior risco de LGPD |
 
----
+## Estrutura do projeto
 
-## 🗂️ Estrutura do projeto
-
-```
+```text
 base-scraping/
-├── SKILL.md                    # 🧭 instruções completas pra rodar como skill do Claude Code
-├── .env.example                 # 🔑 BASECNPJ_TOKEN=
+├── SKILL.md                 instruções da skill (o Claude como consultor de vendas)
+├── commands/new-leads.md    o comando /new-leads
+├── icp.example.yaml         perfil do cliente ideal de exemplo
 ├── references/
-│   ├── basecnpj.md              # 📡 rotas, filtros, erros e limites confirmados da API
-│   ├── cnae.md                  # 📖 dicionário nicho → CNAE
-│   ├── enriquecimento.md        # 🌐 receita do scraping (site, contato, e-mail, contexto)
-│   └── compliance.md            # 🔒 LGPD, robots.txt, rate limiting
-├── schemas/
-│   ├── lead.md                  # 🧾 contrato de dados do Lead (documentação)
-│   └── lead.schema.json         # 📐 JSON Schema das saídas (gerado dos modelos Pydantic)
+│   ├── cnae.md              dicionário nicho → CNAE (99 nichos)
+│   ├── consultoria.md       método do consultor: ICP, produto, veredito, 1ª mensagem
+│   ├── basecnpj.md          rotas, filtros, erros e limites da API
+│   ├── enriquecimento.md    receita do scraping (site, contato, e-mail)
+│   └── compliance.md        LGPD, robots.txt, rate limiting
+├── schemas/                 contrato de saída (JSON Schema + documentação)
 ├── scripts/
-│   ├── basecnpj/                # 📡 cliente da API (cache, retry, mapa de erros)
-│   ├── pipeline/                # 🔁 descoberta, validação, score, export
-│   ├── scraping/                # 🌐 site oficial, contatos, verificação de e-mail
-│   ├── utils.py                 # 🧰 helpers compartilhados (only_digits)
-│   ├── log.py                   # 📣 logs de progresso em stderr (--verbose/--quiet)
-│   ├── cli.py                   # 🛠️ CLI de teste manual das 6 rotas do BaseCNPJ
-│   └── pipeline_cli.py          # 🚀 CLI principal: descobrir / prospectar / validar-lista
+│   ├── basecnpj/            cliente da API (cache, retry, mapa de erros)
+│   ├── pipeline/            descoberta, validação, sinais, perfil, score, explicação, planilha, resultados
+│   ├── scraping/            site oficial, contatos, verificação de e-mail
+│   └── pipeline_cli.py      CLI principal
+└── tests/                   432 testes offline + 6 de integração
 ```
 
-> 🧪 `tests/` (pytest, sem rede e sem token) e `uv.lock` são versionados e rodam no CI a cada push/PR (`ruff`, `mypy`, `pytest`). Localmente: `uv sync --group dev && uv run pytest`; contra a API real: `uv run pytest -m integration`.
+## Desenvolvimento
 
----
+```bash
+uv sync --all-groups
+uv run ruff check . && uv run mypy scripts/ && uv run pytest     # sem rede e sem token
+uv run pytest -m integration                                      # contra a API real (exige token)
+```
 
-## 🔒 LGPD e compliance
+O CI roda `ruff`, `mypy` e `pytest` a cada push e PR.
 
-Dado de empresa é público; nome e e-mail de pessoa física são dados pessoais, tratados com finalidade clara (contato B2B) e proveniência registrada por campo. Rate limiting rígido nos sites externos:
+## LGPD e compliance
 
-- 1️⃣ requisição simultânea por domínio
-- 🤖 `robots.txt`/`Crawl-delay` sempre respeitados
-- 5️⃣ páginas de teto por domínio
-- 🕐 cache de 7 dias pra não bater duas vezes no mesmo site
+Dado de empresa é público; nome e e-mail de pessoa física são dados pessoais, tratados com finalidade clara (contato B2B) e com a origem registrada por campo. O decisor sai só com nome e qualificação, sem CPF. No scraping, o pipeline faz uma requisição por vez a cada domínio, respeita `robots.txt` e `Crawl-delay`, lê no máximo 5 páginas por domínio e guarda cache de 7 dias para não visitar o mesmo site duas vezes. Detalhes em [`references/compliance.md`](references/compliance.md).
 
-Detalhes completos em [`references/compliance.md`](./references/compliance.md).
+## Licença
 
----
+MIT. Ver [`LICENSE`](LICENSE).
 
-## 📄 Licença
-
-MIT — ver [`LICENSE`](./LICENSE).
+<sub>Feito sobre os dados do <a href="https://basecnpj.app">BaseCNPJ</a>. Projeto independente, sem vínculo oficial com o BaseCNPJ.</sub>
