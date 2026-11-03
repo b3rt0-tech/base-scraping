@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Annotated, Any, NoReturn
 
 import httpx
 import typer
 
+from scripts import log as log_module
 from scripts.basecnpj.config import SKILL_ROOT, get_settings
 from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
@@ -21,12 +23,17 @@ from scripts.scraping.enrich import enrich
 from scripts.scraping.http import USER_AGENT, ScrapeSession
 from scripts.utils import only_digits
 
+log = log_module.get_logger("cli")
+
 app = typer.Typer(help="Pipeline do base-scraping — S0→S3 (descobrir) e S0→S4→S6 (prospectar, sem S5).")
 
 TARGET_LEADS = 100  # decisão fechada, seção 11 do ARCTETURE.md — sem override de CLI
 MAX_ITENS_LISTA = 100  # teto de itens do `validar-lista`, mesmo valor do teto de leads
 ENRIQUECIMENTO_CONCORRENCIA = 8  # leads enriquecidos ao mesmo tempo (domínios distintos; o mesmo domínio é serializado)
 MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
+
+VerboseOpt = Annotated[bool, typer.Option("--verbose", "-v", help="Detalhe de cada lead no stderr.")]
+QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
 
 class PreflightError(RuntimeError):
@@ -40,6 +47,12 @@ class TokenAusenteError(RuntimeError):
 def _exit_with_error(codigo: str, mensagem: str) -> NoReturn:
     typer.echo(json.dumps({"erro": codigo, "mensagem": mensagem}, ensure_ascii=False))
     raise typer.Exit(code=1)
+
+
+def _configurar_logs(verbose: bool, quiet: bool) -> None:
+    if verbose and quiet:
+        _exit_with_error("opcoes_invalidas", "--verbose e --quiet não podem ser usados juntos.")
+    log_module.configure(verbose=verbose, quiet=quiet)  # só stderr: o stdout é o JSON final
 
 
 def _run_or_exit(coro):
@@ -127,6 +140,7 @@ async def _descobrir_ate_validar(
     ainda não processados. Devolve (conn, run_id, leads_validados_desta_execucao_em_diante).
     """
     await _exigir_preflight()
+    log.info("S0 preflight ok — nicho '%s', CNAEs %s", icp.nicho, ", ".join(icp.cnaes))
 
     conn = db_module.connect(Path(db_path) if db_path else None)
     params: dict[str, Any] = {
@@ -148,11 +162,14 @@ async def _descobrir_ate_validar(
 
     # só os que ainda estão "descoberto" precisam passar pelo S3 nesta chamada —
     # leads já validados/descartados em execuções anteriores (retomada) são pulados
-    for lead in descobertos:
+    total = len(descobertos)
+    log.info("S1 descoberta: %d lead(s) para validar", total)
+    for posicao, lead in enumerate(descobertos, start=1):
         cnpj = lead["cnpj"]
         try:
             resultado = await validate_lead(cnpj, icp)
         except NotFoundError:
+            log.warning("S3 %d/%d %s: CNPJ não encontrado (404)", posicao, total, cnpj)
             db_module.upsert_lead(
                 conn,
                 run_id,
@@ -169,8 +186,12 @@ async def _descobrir_ate_validar(
             detalhe=resultado.detalhe.model_dump() if resultado.detalhe else None,
             discard_reason=resultado.discard_reason,
         )
+        log.debug("S3 %d/%d %s → %s %s", posicao, total, cnpj, resultado.status, resultado.discard_reason or "")
+        if posicao % 10 == 0 or posicao == total:
+            log.info("S3 validação: %d/%d", posicao, total)
 
     validados = db_module.list_leads(conn, run_id, status="validado")
+    log.info("S3 pronto: %d validado(s)", len(validados))
     return conn, run_id, validados
 
 
@@ -208,12 +229,19 @@ def _listar_descartados(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return descartados
 
 
+@dataclass
+class _Progresso:
+    total: int
+    feitos: int = 0
+
+
 async def _enriquecer_um(
     resultado: ValidacaoResult,
     candidate_url: str | None,
     session: ScrapeSession,
     client: httpx.AsyncClient,
     semaforo: asyncio.Semaphore,
+    progresso: _Progresso,
 ) -> dict[str, Any]:
     enrichment = None
     if candidate_url:
@@ -232,7 +260,15 @@ async def _enriquecer_um(
             )
 
     score = compute_score(resultado, enrichment)
-    return build_lead_json(resultado, score, enrichment)
+    lead = build_lead_json(resultado, score, enrichment)
+    if candidate_url:
+        progresso.feitos += 1
+        status = lead["enriquecimento"]["status"]
+        motivo = lead["enriquecimento"]["motivo"]
+        registrar = log.info if status == "ok" else log.warning
+        sufixo = f" ({motivo})" if motivo else ""
+        registrar("S4 %d/%d %s → %s%s", progresso.feitos, progresso.total, resultado.cnpj, status, sufixo)
+    return lead
 
 
 async def _enriquecer_e_pontuar(
@@ -251,11 +287,16 @@ async def _enriquecer_e_pontuar(
     """
     session = ScrapeSession()
     semaforo = asyncio.Semaphore(concorrencia)
+    progresso = _Progresso(total=sum(1 for r in resultados if sites.get(r.cnpj)))
+    if progresso.total:
+        log.info("S4 enriquecimento: %d lead(s) com site candidato, até %d em paralelo", progresso.total, concorrencia)
+    else:
+        log.info("S4 pulado: nenhum site candidato informado — leads saem só com dado cadastral")
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
         return list(
             await asyncio.gather(
                 *(
-                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo)
+                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo, progresso)
                     for resultado in resultados
                 )
             )
@@ -272,6 +313,8 @@ def descobrir(
     cep: str | None = None,
     matriz: bool = False,
     db_path: str | None = None,
+    verbose: VerboseOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """S0→S3: traduz o nicho em CNAE (`references/cnae.md`), descobre via busca
     avançada (teto fixo de 100 leads), valida cada lead via `route=cnpj`, e
@@ -282,6 +325,7 @@ def descobrir(
     nomeado na API (ver references/basecnpj.md). `--matriz` restringe a
     descoberta a estabelecimentos matriz (exclui filiais).
     """
+    _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
     async def _pipeline() -> dict[str, Any]:
@@ -305,6 +349,7 @@ def descobrir(
         }
 
     resultado_final = _run_or_exit(_pipeline())
+    log.info("pronto: %d lead(s), %d descartado(s)", resultado_final["total"], len(resultado_final["descartados"]))
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
 
 
@@ -319,6 +364,8 @@ def prospectar(
     matriz: bool = False,
     db_path: str | None = None,
     sites_json: str | None = None,
+    verbose: VerboseOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """S0→S4→S6 (sem S5 — decisão fechada, seção 11): descobre, valida,
     enriquece (quando há site candidato) e pontua. Sempre JSON, teto fixo de
@@ -328,6 +375,7 @@ def prospectar(
     responsabilidade do skill via busca web, não deste comando (regra de ouro
     da seção 6 do ARCTETURE.md).
     """
+    _configurar_logs(verbose, quiet)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
     sites = _ler_sites_json_ou_exit(sites_json)
@@ -361,6 +409,7 @@ def prospectar(
         return saida
 
     resultado_final = _run_or_exit(_pipeline())
+    log.info("S6 pronto: %d lead(s), %d descartado(s)", resultado_final["total"], len(resultado_final["descartados"]))
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
 
 
@@ -384,6 +433,8 @@ def validar_lista(
     arquivo: str = typer.Option(..., help="JSON com a lista de CNPJs/nomes"),
     situacao: str = "ativa",
     sites_json: str | None = None,
+    verbose: VerboseOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """S2→S3→S4→S6 para uma lista própria (sem descoberta): `--arquivo` é um JSON
     com itens `{"cnpj": ...}` ou `{"nome": ..., "uf"?, "municipio"?}`, no máximo
@@ -392,6 +443,7 @@ def validar_lista(
     `nao_resolvidos`. A validação não checa CNAE (a lista não tem nicho).
     `--sites-json` funciona como em `prospectar`.
     """
+    _configurar_logs(verbose, quiet)
     itens = _ler_lista_ou_exit(arquivo)
     ignorados = max(0, len(itens) - MAX_ITENS_LISTA)
     itens = itens[:MAX_ITENS_LISTA]
@@ -409,11 +461,13 @@ def validar_lista(
         validados: list[ValidacaoResult] = []
         vistos: set[str] = set()
 
-        for item in itens:
+        total_itens = len(itens)
+        for posicao, item in enumerate(itens, start=1):
             if item.get("cnpj"):
                 cnpj = only_digits(str(item["cnpj"]))
                 if len(cnpj) != 14:
                     nao_resolvidos.append({"cnpj": item["cnpj"], "motivo": "cnpj inválido (não tem 14 dígitos)"})
+                    log.warning("S2 %d/%d %s → CNPJ inválido", posicao, total_itens, item["cnpj"])
                     continue
             else:
                 resolucao = await resolve_candidato(
@@ -421,10 +475,12 @@ def validar_lista(
                 )
                 if resolucao.status != "resolvido" or resolucao.cnpj is None:
                     nao_resolvidos.append({"nome": item["nome"], "motivo": "sem match único na sugestão/busca"})
+                    log.warning("S2 %d/%d '%s' → não resolvido (sem match único)", posicao, total_itens, item["nome"])
                     continue
                 cnpj = resolucao.cnpj
 
             if cnpj in vistos:
+                log.debug("S2 %d/%d %s → repetido, ignorado", posicao, total_itens, cnpj)
                 continue
             vistos.add(cnpj)
 
@@ -432,11 +488,13 @@ def validar_lista(
                 resultado = await validate_lead(cnpj, icp)
             except NotFoundError:
                 descartados.append({"cnpj": cnpj, "motivo": MOTIVO_404})
+                log.warning("S3 %d/%d %s → CNPJ não encontrado (404)", posicao, total_itens, cnpj)
                 continue
             if resultado.status == "validado":
                 validados.append(resultado)
             else:
                 descartados.append({"cnpj": cnpj, "motivo": resultado.discard_reason})
+            log.info("S3 %d/%d %s → %s", posicao, total_itens, cnpj, resultado.status)
 
         leads_json = await _enriquecer_e_pontuar(validados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
@@ -447,6 +505,12 @@ def validar_lista(
         return saida
 
     resultado_final = _run_or_exit(_pipeline())
+    log.info(
+        "S6 pronto: %d lead(s), %d descartado(s), %d não resolvido(s)",
+        resultado_final["total"],
+        len(resultado_final["descartados"]),
+        len(resultado_final["nao_resolvidos"]),
+    )
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
 
 

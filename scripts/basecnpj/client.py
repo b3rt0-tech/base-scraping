@@ -5,10 +5,24 @@ from typing import Any
 import httpx
 from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from scripts.log import get_logger
+
 from .config import Settings, get_settings
 from .errors import BaseCNPJError, RateLimitError, ServerError, map_error
 
+log = get_logger("basecnpj")
+
 _DEFAULT_BACKOFF = wait_exponential(multiplier=1, min=1, max=20)
+
+
+def _log_retry(retry_state) -> None:
+    exc = retry_state.outcome.exception()
+    log.warning(
+        "BaseCNPJ: tentativa %d falhou (%s); nova tentativa em %.1fs",
+        retry_state.attempt_number,
+        exc,
+        retry_state.next_action.sleep,
+    )
 
 
 def _retry_wait(retry_state):
@@ -75,6 +89,7 @@ async def request(
             retry=retry_if_exception_type((RateLimitError, ServerError)),
             stop=stop_after_attempt(3),
             wait=_retry_wait,
+            before_sleep=_log_retry,
             reraise=True,
         ):
             with attempt:
