@@ -11,6 +11,7 @@
   "descobertos": 2,
   "validados": 1,
   "esgotou_busca": true,
+  "excluidos": 0,
   "leads": [
     {
       "cnpj": "12345678000195",

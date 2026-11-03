@@ -890,6 +890,11 @@
           "title": "Esgotou Busca",
           "type": "boolean"
         },
+        "excluidos": {
+          "default": 0,
+          "title": "Excluidos",
+          "type": "integer"
+        },
         "leads": {
           "items": {
             "$ref": "#/$defs/LeadResumo"
@@ -943,6 +948,11 @@
         "esgotou_busca": {
           "title": "Esgotou Busca",
           "type": "boolean"
+        },
+        "excluidos": {
+          "default": 0,
+          "title": "Excluidos",
+          "type": "integer"
         },
         "leads": {
           "items": {
@@ -1006,6 +1016,11 @@
           },
           "title": "Nao Resolvidos",
           "type": "array"
+        },
+        "excluidos": {
+          "default": 0,
+          "title": "Excluidos",
+          "type": "integer"
         },
         "aviso": {
           "anyOf": [
