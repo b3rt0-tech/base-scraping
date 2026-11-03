@@ -79,6 +79,12 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 - Regras de descarte/flag: situação ≠ ativa → descarta; CNAE fora do ICP (nem secundário bate) → descarta; CNAE só secundário → mantém, rebaixa score; porte fora da faixa → descarta; abertura < 6 meses → flag "empresa nova"; filial quando ICP pede matriz → descarta.
 - Lead com e-mail/telefone cadastral já sai **contactável sem scraping** — ganho direto.
 - Todo lead traz `decisores[]` (até 3 pessoas físicas do quadro societário, ou o titular quando é empresário individual): use-os para dizer ao vendedor **com quem falar**. A `origem` `razao_social_titular` significa que o nome é o da razão social (MEI/EI) e pode ter sufixo de atividade.
+- **Sinais de venda nos `flags`** (diga ao vendedor o que muda na abordagem):
+  - `contato_de_contador`: o e-mail/telefone cadastral é provavelmente do escritório de contabilidade. Não use como canal para o decisor; procure site ou WhatsApp.
+  - `whatsapp_provavel` + `telefone_cadastral_celular`: celular cadastral próprio da empresa, o melhor canal de primeiro contato em PME (abordagem curta, apresentando-se).
+  - `mei`: microempreendedor individual, com ticket e estrutura mínimos. Bom só para produto barato e simples.
+  - `multiunidade` / `unidades`: mais de um estabelecimento ativo, conta maior. Vale citar as unidades na abordagem.
+  - `anos_de_mercado`: empresa madura ou recém-aberta (`empresa_nova`), o que muda o discurso.
 
 ## S4 — Enriquecimento por scraping
 

@@ -23,6 +23,7 @@ class ValidacaoResult:
     discard_reason: str | None = None
     flags: list[str] = field(default_factory=list)
     cnae_match: str | None = None  # "principal" | "secundario" | None
+    celular_cadastral: str | None = None  # +55… preenchido por `sinais.aplicar_sinais` (flag whatsapp_provavel)
 
 
 def _cnae_no_icp(cnae: str | None, cnaes_icp: list[str]) -> bool:

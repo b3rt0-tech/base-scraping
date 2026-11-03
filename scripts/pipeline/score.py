@@ -73,7 +73,12 @@ def _score_qualidade_contato(validacao: ValidacaoResult, enrichment: EnrichmentR
     if pontos_email == 0 and cadastral_util:
         pontos_cadastral_bonus = 8.0
 
-    total = pontos_email + pontos_telefone_whatsapp + pontos_cadastral_bonus
+    # celular cadastral (provável WhatsApp, não repetido entre empresas): canal de maior resposta em PME
+    pontos_whatsapp_cadastral = 0.0
+    if "whatsapp_provavel" in validacao.flags and not (enrichment and enrichment.whatsapp):
+        pontos_whatsapp_cadastral = 6.0
+
+    total = pontos_email + pontos_telefone_whatsapp + pontos_cadastral_bonus + pontos_whatsapp_cadastral
     return min(float(PESO_QUALIDADE_CONTATO), total)
 
 
