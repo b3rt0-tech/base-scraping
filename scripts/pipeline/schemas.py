@@ -78,6 +78,9 @@ class Lead(_Modelo):
     endereco: Endereco | None = None
     telefone_cadastral: str | None = None
     email_cadastral: str | None = None
+    telefone_cadastral_celular: str | None = None  # +55DDD9XXXXXXXX — só com o flag `whatsapp_provavel`
+    unidades: int | None = None  # estabelecimentos ativos (matriz + filiais)
+    anos_de_mercado: int | None = None
     decisores: list[Decisor] | None = None
     # scraping (S4) — só quando há site candidato confirmado
     site: str | None = None

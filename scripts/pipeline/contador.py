@@ -38,18 +38,10 @@ def _contatos(validacao: ValidacaoResult) -> tuple[str | None, set[str]]:
     return email or None, telefones
 
 
-def marcar_contadores(resultados: list[ValidacaoResult]) -> int:
-    """O e-mail/telefone cadastral de uma empresa pequena costuma ser o do escritório de contabilidade que a
-    abriu — contato que não leva ao decisor. Acrescenta o flag `contato_de_contador` quando:
-
-    - o e-mail tem palavra contábil (sinal individual); ou
-    - o mesmo e-mail em provedor genérico, ou o mesmo telefone, aparece em ≥2 empresas de raízes de CNPJ
-      diferentes na execução (filiais da mesma empresa compartilham contato legitimamente; e-mail em domínio
-      próprio repetido costuma ser uma rede/franquia, e isenta o telefone repetido, então só conta se
-      também tiver palavra contábil).
-
-    Devolve quantos leads foram marcados.
-    """
+def _indices(
+    resultados: list[ValidacaoResult],
+) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, set[str]]]:
+    """Raízes de CNPJ por e-mail genérico, por telefone e por domínio próprio."""
     por_email: dict[str, set[str]] = defaultdict(set)
     por_telefone: dict[str, set[str]] = defaultdict(set)
     por_dominio_proprio: dict[str, set[str]] = defaultdict(set)
@@ -64,6 +56,28 @@ def marcar_contadores(resultados: list[ValidacaoResult]) -> int:
                 por_dominio_proprio[dominio].add(raiz)
         for telefone in telefones:
             por_telefone[telefone].add(raiz)
+    return por_email, por_telefone, por_dominio_proprio
+
+
+def telefones_compartilhados(resultados: list[ValidacaoResult]) -> set[str]:
+    """Telefones (DDD+número, só dígitos) que aparecem em ≥2 empresas de raízes diferentes."""
+    _, por_telefone, _ = _indices(resultados)
+    return {telefone for telefone, raizes in por_telefone.items() if len(raizes) >= 2}
+
+
+def marcar_contadores(resultados: list[ValidacaoResult]) -> int:
+    """O e-mail/telefone cadastral de uma empresa pequena costuma ser o do escritório de contabilidade que a
+    abriu — contato que não leva ao decisor. Acrescenta o flag `contato_de_contador` quando:
+
+    - o e-mail tem palavra contábil (sinal individual); ou
+    - o mesmo e-mail em provedor genérico, ou o mesmo telefone, aparece em ≥2 empresas de raízes de CNPJ
+      diferentes na execução (filiais da mesma empresa compartilham contato legitimamente; e-mail em domínio
+      próprio repetido costuma ser uma rede/franquia, e isenta o telefone repetido, então só conta se
+      também tiver palavra contábil).
+
+    Devolve quantos leads foram marcados.
+    """
+    por_email, por_telefone, por_dominio_proprio = _indices(resultados)
 
     marcados = 0
     for r in resultados:

@@ -429,6 +429,42 @@
           "default": null,
           "title": "Email Cadastral"
         },
+        "telefone_cadastral_celular": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Telefone Cadastral Celular"
+        },
+        "unidades": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unidades"
+        },
+        "anos_de_mercado": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anos De Mercado"
+        },
         "decisores": {
           "anyOf": [
             {

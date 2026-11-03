@@ -21,6 +21,7 @@ from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
 from scripts.pipeline.score import compute_score
+from scripts.pipeline.sinais import aplicar_sinais
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import USER_AGENT, ScrapeSession
@@ -462,6 +463,7 @@ def prospectar(
             resultados.append(resultado)
 
         marcar_contadores(resultados)
+        aplicar_sinais(resultados)
         leads_json = await _enriquecer_e_pontuar(resultados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["icp"] = _icp_resumo(icp)
@@ -595,6 +597,7 @@ def validar_lista(
             log.info("S3 %d/%d %s → %s", posicao, total_itens, cnpj, resultado.status)
 
         marcar_contadores(validados)
+        aplicar_sinais(validados)
         leads_json = await _enriquecer_e_pontuar(validados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = descartados
