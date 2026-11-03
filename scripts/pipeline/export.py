@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from scripts.pipeline.score import ScoreBreakdown
+from scripts.pipeline.sinais import anos_de_mercado, unidades_ativas
 from scripts.pipeline.validate import ValidacaoResult
 from scripts.scraping.enrich import EnrichmentResult
 
@@ -72,6 +73,9 @@ def build_lead_json(
 
         if detalhe.telefones:
             campos_cadastrais["telefone_cadastral"] = detalhe.telefone_principal()
+        campos_cadastrais["telefone_cadastral_celular"] = validacao.celular_cadastral
+        campos_cadastrais["unidades"] = unidades_ativas(detalhe)
+        campos_cadastrais["anos_de_mercado"] = anos_de_mercado(detalhe)
 
         matriz_filial_codigo = detalhe.matriz_filial_codigo()
         if matriz_filial_codigo is not None:

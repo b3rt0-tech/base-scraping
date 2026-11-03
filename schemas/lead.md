@@ -13,6 +13,9 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `endereco` (logradouro, município, UF, CEP) | `route=cnpj` | `estabelecimento_matriz.{logradouro,municipio,uf,cep}` | quando houver dado |
 | `email_cadastral` | `route=cnpj` | `estabelecimento_matriz.email` | quando houver dado |
 | `telefone_cadastral` | `route=cnpj` | `telefones[0]` da **raiz** do payload (não da matriz), formatado `(DDD) número` | quando houver dado |
+| `telefone_cadastral_celular` | `route=cnpj` | primeiro telefone cadastral que é celular, em `+55DDD9XXXXXXXX` (o formato antigo de 8 dígitos começando com 6–9 ganha o 9); ignora fax e telefone repetido entre empresas diferentes (do contador). **Provável WhatsApp** | com o flag `whatsapp_provavel` |
+| `unidades` | `route=cnpj` | estabelecimentos ativos (matriz + filiais) | sempre |
+| `anos_de_mercado` | `route=cnpj` | anos completos desde `data_inicio_atividade` | quando houver data |
 | `decisores[]` (`nome`, `qualificacao`, `desde`, `origem`) | `route=cnpj` | `socios[]` da raiz do payload: só **pessoa física**, sem repetição, ordenada por qualificação (administrador > presidente > diretor > gerente > titular > sócio) e data de entrada, **máx. 3**. Empresário individual/MEI não tem `socios[]`: o titular (nome na `razao_social`) vem com `origem=razao_social_titular`. Não saem CPF mascarado nem faixa etária | quando houver dado |
 | `grupo_economico[]`, `orange_flags[]` | `route=rede` (**fase 2 — fora do v1**) | — | não emitido |
 | `site` | S4.1 (descoberta do site oficial) | URL final após redirects | só com site confirmado |
@@ -21,7 +24,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `contatos[]` (nome, cargo, email) | S4.2 | **não emitido no v1** — extrair pessoa+cargo de HTML livre fica com o Claude, não com script | não emitido |
 | `enriquecimento{status, motivo}` | S4 | `status`: `ok`, `requer_navegador`, `match_fraco` ou `falha`; `motivo` traz o erro (ex. `http_404`) | só com URL candidata |
 | `score`, `score_breakdown{}` | S6 (scoring) | `score_breakdown` traz as 4 dimensões e o `total` | **sempre** |
-| `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel`, `contato_de_contador` (e-mail/telefone cadastral provavelmente do escritório de contabilidade: não leva ao decisor e perde o bônus de contato no score) | quando houver |
+| `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel`, `contato_de_contador` (e-mail/telefone cadastral provavelmente do escritório de contabilidade: não leva ao decisor e perde o bônus de contato no score), `whatsapp_provavel` (celular cadastral próprio: +6 em qualidade de contato), `mei` (microempreendedor individual: ticket e estrutura mínimos), `multiunidade` (mais de um estabelecimento ativo) | quando houver |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | `fonte`: `basecnpj`, `scraping` ou `pipeline` | **sempre** |
 
 **Campo sem dado não aparece** na saída (em vez de vir `null`); só `cnpj`, `score`, `score_breakdown` e `proveniencia` estão sempre presentes.

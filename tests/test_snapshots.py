@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import types
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,7 @@ import pytest
 from typer.testing import CliRunner
 
 from scripts.pipeline import export as export_module
+from scripts.pipeline import sinais as sinais_module
 from scripts.pipeline_cli import app
 
 from .conftest import CNPJ_PADRAO, OUTRO_CNPJ, cnpj_handler, erro, make_cnpj_raw
@@ -35,6 +37,7 @@ PAGINA = f"""<html><body>
 @pytest.fixture(autouse=True)
 def relogio_fixo(monkeypatch):
     monkeypatch.setattr(export_module, "time", types.SimpleNamespace(time=lambda: 1_700_000_000.0))
+    monkeypatch.setattr(sinais_module, "_hoje", lambda: date(2023, 11, 14))  # mesmo instante do relógio acima
 
 
 def _conferir(nome: str, stdout: str) -> None:

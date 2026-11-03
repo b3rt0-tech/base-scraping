@@ -34,6 +34,8 @@
       },
       "telefone_cadastral": "(19) 32345678",
       "email_cadastral": "contato@sorriso.com.br",
+      "unidades": 1,
+      "anos_de_mercado": 8,
       "decisores": [
         {
           "nome": "ANA SOUZA LIMA",
@@ -147,6 +149,16 @@
           "timestamp": 1700000000.0
         },
         "telefone_cadastral": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "unidades": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "anos_de_mercado": {
           "fonte": "basecnpj",
           "rota_ou_url": "route=cnpj",
           "timestamp": 1700000000.0
