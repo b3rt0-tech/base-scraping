@@ -90,6 +90,15 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 
 Quando o usuário quiser os leads no CRM ou no Excel, rode `prospectar`/`validar-lista` com `--formato xlsx` (Excel) ou `--formato csv` (importação no HubSpot/Pipedrive; `--separador ";"` para Excel em português) e, se ele indicar, `--saida <arquivo>`. O stdout traz só o resumo com `arquivo` (caminho absoluto): diga onde o arquivo ficou e mostre o `resumo`. O mapeamento de colunas para HubSpot e Pipedrive está no README.
 
+## Aprender com resultados
+
+Quando o usuário contar o que aconteceu com leads já trabalhados ("liguei para esses 10, 2 marcaram reunião, 3 não têm interesse"), ou trouxer um export do CRM com o estágio de cada lead, monte um CSV/JSON com `cnpj`, `status` e `motivo` (opcional). Os status aceitos são `contatado`, `respondeu`, `reuniao`, `ganho`, `perdido` e `nao_e_fit`; variações em português como "reunião marcada", "sem interesse" e "não é fit" também valem. Depois rode `registrar-resultado --arquivo <arquivo>`.
+
+- **Efeito:** CNPJ com resultado não volta em `descobrir`/`prospectar` (`ja_trabalhados` na saída), e a descoberta repõe outro.
+- **Antes de montar um perfil novo para o mesmo usuário,** rode `relatorio-resultados`. Ele mostra a conversão por prioridade, CNAE, porte, cidade e por sinal (`mei`, `whatsapp_provavel`, `multiunidade`, `contato_de_contador`, comparando com e sem) e os motivos de perda.
+- **Use o relatório para propor ajustes concretos no `icp.yaml`,** como o consultor faria. Exemplos: "MEI: 0 reuniões em 12, sugiro `excluir.mei: true`"; "com WhatsApp a taxa de reunião é 3x maior, sugiro `whatsapp: true` no fit".
+- **Amostra pequena:** abaixo de uns 10 resultados por grupo, diga que é cedo para concluir.
+
 ## Quem já está no CRM (`--excluir`)
 
 Se o usuário tiver uma lista de clientes ou leads em andamento (export do CRM, planilha), passe com `--excluir <arquivo>` em `descobrir`/`prospectar`/`validar-lista`. Aceita `.csv`, `.txt` ou `.json` do jeito que o CRM exporta: cada célula é reconhecida sozinha como CNPJ (exclui a empresa inteira, todas as filiais) ou e-mail/URL/domínio (exclui quem tem o mesmo domínio no e-mail cadastral). Diga ao usuário quantos foram `excluidos`; eles não entram em `descartados`, porque não são descarte.
@@ -117,6 +126,8 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 `scripts/pipeline_cli.py` expõe os dois comandos de ponta a ponta:
 - `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--continuar]`: S0→S3, retomável via checkpoint SQLite.
 - `validar-lista --arquivo lista.json [--situacao ativa] [--sites-json arquivo.json]`: S2→S3→S4→S6 sobre uma lista de CNPJs/nomes do usuário (até 100 itens), sem CNAE.
+- `registrar-resultado --arquivo resultados.csv|json`: grava o desfecho de leads já trabalhados.
+- `relatorio-resultados`: funil dos leads entregues por atributo e sinal.
 - `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.
 
 **S5 (rede societária) fica fora do v1.** O cliente já expõe `routes.rede()` (Passo 4), mas o pipeline não a chama; fica pra fase 2.
