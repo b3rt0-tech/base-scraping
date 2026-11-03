@@ -343,6 +343,7 @@ async def _descobrir_ate_validar(
         "validados": len(validados),
         "esgotou_busca": discovery.busca_esgotada(icp, conn=conn, run_id=run_id),
         "excluidos": db_module.count_leads(conn, run_id, status="excluido"),
+        "mesma_empresa": db_module.count_leads(conn, run_id, status="mesma_empresa"),
         "ja_trabalhados": db_module.count_leads(conn, run_id, status="ja_trabalhado")
         + len(entregues_do_lote)
         - len(validados),
@@ -372,8 +373,15 @@ async def _validar_pendentes(
     total = len(descobertos)
     if total:
         log.info("S1 descoberta: %d lead(s) para validar", total)
+    # uma conta por empresa: filiais da mesma raiz são um cliente só para o comercial
+    raizes_validadas = {lead["cnpj"][:8] for lead in db_module.list_leads(conn, run_id, status="validado")}
     for posicao, lead in enumerate(descobertos, start=1):
         cnpj = lead["cnpj"]
+        if cnpj[:8] in raizes_validadas:
+            db_module.upsert_lead(
+                conn, run_id, cnpj, status="mesma_empresa", discard_reason="outra unidade de empresa já no lote"
+            )
+            continue
         if exclusoes and (motivo := exclusoes.por_cnpj(cnpj)):
             db_module.upsert_lead(conn, run_id, cnpj, status="excluido", discard_reason=motivo)
             continue
@@ -405,6 +413,8 @@ async def _validar_pendentes(
             detalhe=resultado.detalhe.model_dump() if resultado.detalhe else None,
             discard_reason=motivo,
         )
+        if status == "validado":
+            raizes_validadas.add(cnpj[:8])
         log.debug("S3 %d/%d %s → %s %s", posicao, total, cnpj, resultado.status, resultado.discard_reason or "")
         if posicao % 10 == 0 or posicao == total:
             log.info("S3 validação: %d/%d", posicao, total)

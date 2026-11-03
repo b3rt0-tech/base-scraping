@@ -1211,6 +1211,11 @@
           "title": "Ja Trabalhados",
           "type": "integer"
         },
+        "mesma_empresa": {
+          "default": 0,
+          "title": "Mesma Empresa",
+          "type": "integer"
+        },
         "leads": {
           "items": {
             "$ref": "#/$defs/LeadResumo"
@@ -1273,6 +1278,11 @@
         "ja_trabalhados": {
           "default": 0,
           "title": "Ja Trabalhados",
+          "type": "integer"
+        },
+        "mesma_empresa": {
+          "default": 0,
+          "title": "Mesma Empresa",
           "type": "integer"
         },
         "leads": {

@@ -176,3 +176,35 @@ def test_banco_antigo_sem_coluna_lote_e_migrado(tmp_path):
     assert db.lote_atual(conn, "r") == 0
     db.atribuir_lote(conn, "r", 1, 100)
     assert [lead["cnpj"] for lead in db.list_lote(conn, "r", 1)] == ["1"]
+
+
+# --- [17] uma conta por empresa ----------------------------------------------------
+
+
+def _unidade(raiz: int, ordem: int) -> str:
+    return f"{raiz:08d}{ordem:04d}00"
+
+
+def test_filiais_da_mesma_raiz_nao_ocupam_varios_lugares(api, tmp_path, teto_pequeno):
+    rede = [(_unidade(1, k), ATIVO) for k in (1, 2, 3)]  # uma rede com 3 unidades na mesma página
+
+    def avancada(request):
+        page = int(request.url.params["page"])
+        paginas = [rede, [(_unidade(2, 1), ATIVO), (_unidade(3, 1), ATIVO)]]
+        itens = paginas[page - 1] if page <= len(paginas) else []
+        return ok({"items": [{"cnpj_completo": c} for c, _ in itens], "total_pages": len(paginas)})
+
+    chamadas = api(
+        {
+            "status": {"status": "ok"},
+            "avancada": avancada,
+            "cnpj": cnpj_handler({c: raw for c, raw in [*rede, (_unidade(2, 1), ATIVO), (_unidade(3, 1), ATIVO)]}),
+        }
+    )
+    saida = _descobrir(tmp_path)
+
+    raizes = [lead["cnpj"][:8] for lead in saida["leads"]]
+    assert len(raizes) == 3 and len(set(raizes)) == 3  # 3 empresas distintas, a descoberta repôs
+    assert saida["mesma_empresa"] == 2
+    detalhes = [c.url.params.get("cnpj") for c in chamadas if c.url.params.get("route") == "cnpj"]
+    assert _unidade(1, 2) not in detalhes and _unidade(1, 3) not in detalhes  # nem consulta o detalhe
