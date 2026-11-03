@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from scripts.basecnpj import routes
-from scripts.basecnpj.config import Settings
+from scripts.basecnpj.config import SKILL_ROOT, Settings
 
-DEFAULT_CNAE_DICT_PATH = Path("references/cnae.md")
+DEFAULT_CNAE_DICT_PATH = SKILL_ROOT / "references" / "cnae.md"  # não depende do diretório de onde a skill roda
 
 # Códigos oficiais de situação cadastral e porte da Receita Federal — só `02` (Ativa),
 # `04` (Inapta) e `08` (Baixada) foram confirmados batendo com dado real no Passo 4;

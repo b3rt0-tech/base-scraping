@@ -180,6 +180,19 @@ class SaidaValidarLista(_Modelo):
     aviso: str | None = None
 
 
+class SaidaArquivo(_Modelo):
+    """Com `--formato csv|xlsx`: os leads vão para o arquivo; o stdout continua sendo um JSON."""
+
+    arquivo: str
+    formato: Literal["csv", "xlsx"]
+    total: int
+    resumo: Resumo
+    lote: int | None = None
+    esgotou_busca: bool | None = None
+    excluidos: int = 0
+    descartados: int = 0
+
+
 class Erro(_Modelo):
     erro: str
     mensagem: str
