@@ -8,6 +8,7 @@ from typing import Annotated, Any, NoReturn
 
 import httpx
 import typer
+from pydantic import BaseModel, ValidationError
 
 from scripts import log as log_module
 from scripts.basecnpj.config import SKILL_ROOT, get_settings
@@ -17,6 +18,7 @@ from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
 from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.resolve import Candidato, resolve_candidato
+from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.scraping.enrich import enrich
@@ -45,8 +47,21 @@ class TokenAusenteError(RuntimeError):
 
 
 def _exit_with_error(codigo: str, mensagem: str) -> NoReturn:
-    typer.echo(json.dumps({"erro": codigo, "mensagem": mensagem}, ensure_ascii=False))
+    typer.echo(json.dumps(Erro(erro=codigo, mensagem=mensagem).model_dump(), ensure_ascii=False))
     raise typer.Exit(code=1)
+
+
+def _emitir(modelo: type[BaseModel], dados: dict[str, Any]) -> None:
+    """Valida a saída contra o contrato (`scripts/pipeline/schemas.py`) e imprime o JSON.
+
+    Campo sem dado não aparece (`exclude_unset`). Se o pipeline produzir algo fora do contrato,
+    é bug nosso: responde erro JSON em vez de imprimir uma saída que o skill não saberia ler.
+    """
+    try:
+        saida = modelo.model_validate(dados)
+    except ValidationError as exc:
+        _exit_with_error("saida_invalida", f"a saída não respeita o contrato {modelo.__name__}: {exc}")
+    typer.echo(json.dumps(saida.model_dump(mode="json", exclude_unset=True), indent=2, ensure_ascii=False))
 
 
 def _configurar_logs(verbose: bool, quiet: bool) -> None:
@@ -350,7 +365,7 @@ def descobrir(
 
     resultado_final = _run_or_exit(_pipeline())
     log.info("pronto: %d lead(s), %d descartado(s)", resultado_final["total"], len(resultado_final["descartados"]))
-    typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
+    _emitir(SaidaDescobrir, resultado_final)
 
 
 @app.command()
@@ -410,7 +425,7 @@ def prospectar(
 
     resultado_final = _run_or_exit(_pipeline())
     log.info("S6 pronto: %d lead(s), %d descartado(s)", resultado_final["total"], len(resultado_final["descartados"]))
-    typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
+    _emitir(SaidaProspectar, resultado_final)
 
 
 def _ler_lista_ou_exit(arquivo: str) -> list[dict[str, Any]]:
@@ -511,7 +526,7 @@ def validar_lista(
         len(resultado_final["descartados"]),
         len(resultado_final["nao_resolvidos"]),
     )
-    typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
+    _emitir(SaidaValidarLista, resultado_final)
 
 
 if __name__ == "__main__":
