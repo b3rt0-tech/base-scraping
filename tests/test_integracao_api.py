@@ -41,3 +41,9 @@ async def test_token_invalido_vira_auth_error(monkeypatch):
     monkeypatch.setenv("BASECNPJ_TOKEN", "token-invalido")
     with pytest.raises(AuthError):
         await routes.cnpj(CNPJ_PETROBRAS, use_cache=False)
+
+
+async def test_avancada_real_aceita_per_page_100():
+    data = await routes.avancada(uf="SP", municipio="Campinas", cnae="8630504", situacao="02", per_page=100, use_cache=False)
+    assert len(data["items"]) == 100
+    assert data["per_page"] == 100
