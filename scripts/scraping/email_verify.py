@@ -139,7 +139,7 @@ def verify_email(
         nivel = 5
         motivos.append("nominal")
 
-    cruzamento = bool(email_cadastral) and email_normalizado.lower() == email_cadastral.strip().lower()
+    cruzamento = bool(email_cadastral and email_normalizado.lower() == email_cadastral.strip().lower())
     if cruzamento:
         motivos.append("cruzamento_cadastral_basecnpj")
 

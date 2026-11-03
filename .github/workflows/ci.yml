@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Instalar dependências (falha se o uv.lock estiver desatualizado)
+        run: uv sync --group dev --locked
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Tipos (mypy)
+        run: uv run mypy scripts/
+
+      # sem rede e sem BASECNPJ_TOKEN: a API e os sites são simulados
+      - name: Testes (pytest)
+        run: uv run pytest
