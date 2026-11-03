@@ -17,6 +17,47 @@
     }
   ],
   "$defs": {
+    "Decisor": {
+      "additionalProperties": false,
+      "description": "Quem provavelmente decide a compra. Só nome público e qualificação — sem CPF nem faixa etária.",
+      "properties": {
+        "nome": {
+          "title": "Nome",
+          "type": "string"
+        },
+        "qualificacao": {
+          "title": "Qualificacao",
+          "type": "string"
+        },
+        "desde": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desde"
+        },
+        "origem": {
+          "enum": [
+            "quadro_societario",
+            "razao_social_titular"
+          ],
+          "title": "Origem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nome",
+        "qualificacao",
+        "origem"
+      ],
+      "title": "Decisor",
+      "type": "object"
+    },
     "Descartado": {
       "additionalProperties": false,
       "properties": {
@@ -388,10 +429,12 @@
           "default": null,
           "title": "Email Cadastral"
         },
-        "socios": {
+        "decisores": {
           "anyOf": [
             {
-              "items": {},
+              "items": {
+                "$ref": "#/$defs/Decisor"
+              },
               "type": "array"
             },
             {
@@ -399,7 +442,7 @@
             }
           ],
           "default": null,
-          "title": "Socios"
+          "title": "Decisores"
         },
         "site": {
           "anyOf": [

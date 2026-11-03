@@ -30,6 +30,20 @@
       },
       "telefone_cadastral": "(19) 32345678",
       "email_cadastral": "contato@sorriso.com.br",
+      "decisores": [
+        {
+          "nome": "ANA SOUZA LIMA",
+          "qualificacao": "Sócio-Administrador",
+          "desde": "2015-03-10",
+          "origem": "quadro_societario"
+        },
+        {
+          "nome": "CARLOS PEREIRA",
+          "qualificacao": "Sócio",
+          "desde": "2018-06-01",
+          "origem": "quadro_societario"
+        }
+      ],
       "site": "https://sorriso.com.br/",
       "emails": [
         {
@@ -134,6 +148,11 @@
           "timestamp": 1700000000.0
         },
         "matriz_filial": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "decisores": {
           "fonte": "basecnpj",
           "rota_ou_url": "route=cnpj",
           "timestamp": 1700000000.0
