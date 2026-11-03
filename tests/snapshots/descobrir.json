@@ -1,0 +1,22 @@
+{
+  "icp": {
+    "nicho": "dentista",
+    "entrada_dicionario": "dentista, clínica odontológica",
+    "cnaes": [
+      "8630504"
+    ]
+  },
+  "total": 1,
+  "leads": [
+    {
+      "cnpj": "12345678000195",
+      "razao_social": "CLINICA SORRISO LTDA"
+    }
+  ],
+  "descartados": [
+    {
+      "cnpj": "98765432000110",
+      "motivo": "situacao_cadastral=08 (esperado 02)"
+    }
+  ]
+}

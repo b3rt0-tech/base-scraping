@@ -1,0 +1,132 @@
+{
+  "total": 1,
+  "leads": [
+    {
+      "cnpj": "12345678000195",
+      "razao_social": "CLINICA SORRISO LTDA",
+      "nome_fantasia": "SORRISO",
+      "capital_social": 50000,
+      "porte": "Micro empresa",
+      "natureza_juridica": "Sociedade Empresária Limitada",
+      "cnae_principal": "8630504",
+      "cnaes_secundarios": [
+        "8630506"
+      ],
+      "situacao_cadastral": "Ativa",
+      "data_abertura": "2015-03-10",
+      "matriz_filial": "matriz",
+      "endereco": {
+        "logradouro": "RUA DAS FLORES",
+        "municipio": "CAMPINAS",
+        "uf": "SP",
+        "cep": "13010-000"
+      },
+      "telefone_cadastral": "(19) 32345678",
+      "email_cadastral": "contato@sorriso.com.br",
+      "score": 58.0,
+      "score_breakdown": {
+        "aderencia_icp": 30.0,
+        "qualidade_contato": 8.0,
+        "presenca_digital": 0.0,
+        "saude_cadastral": 20.0,
+        "total": 58.0
+      },
+      "flags": [
+        "contato_cadastral_disponivel"
+      ],
+      "proveniencia": {
+        "cnpj": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "razao_social": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "capital_social": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "porte": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "natureza_juridica": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "cnae_principal": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "cnaes_secundarios": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "nome_fantasia": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "situacao_cadastral": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "data_abertura": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "email_cadastral": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "endereco": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "telefone_cadastral": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "matriz_filial": {
+          "fonte": "basecnpj",
+          "rota_ou_url": "route=cnpj",
+          "timestamp": 1700000000.0
+        },
+        "score": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        }
+      }
+    }
+  ],
+  "descartados": [
+    {
+      "cnpj": "98765432000110",
+      "motivo": "cnpj nao encontrado no BaseCNPJ (404)"
+    }
+  ],
+  "nao_resolvidos": [
+    {
+      "cnpj": "123",
+      "motivo": "cnpj inválido (não tem 14 dígitos)"
+    },
+    {
+      "nome": "Empresa Sumida",
+      "motivo": "sem match único na sugestão/busca"
+    }
+  ]
+}

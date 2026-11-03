@@ -2,24 +2,29 @@
 
 Cada campo carrega sua origem, o que permite rastrear proveniência ponta a ponta (exigido pela seção LGPD de `references/compliance.md`).
 
-| Campo | Origem (abstrato) | Origem (campo real na API, `route=cnpj`) | Obrigatório |
+| Campo | Origem (abstrato) | Origem real (campo da API / código) | Presença |
 |---|---|---|---|
-| `cnpj` | BaseCNPJ | `cnpj_basico` + `cnpj_completo_formatado` | sim (chave) |
-| `razao_social`, `nome_fantasia` | `route=cnpj` | `razao_social`, `estabelecimento_matriz.nome_fantasia` | sim |
-| `cnae_principal`, `cnaes_secundarios` | `route=cnpj` | `estabelecimento_matriz.cnae_principal_codigo`, (secundários em `estabelecimento_matriz`) | sim |
-| `situacao_cadastral`, `data_abertura`, `porte`, `capital_social` | `route=cnpj` | `estabelecimento_matriz.situacao_cadastral`/`situacao_descricao`, `estabelecimento_matriz.data_inicio_atividade`, `porte_descricao`, `capital_social` | sim |
-| `natureza_juridica`, `matriz_filial` | `route=cnpj` | `natureza_juridica_descricao`, `estabelecimentos[].matriz_filial` | sim |
-| `endereco` (logradouro, município, UF, CEP) | `route=cnpj` | `estabelecimento_matriz.{logradouro,municipio,uf,cep}` | sim |
-| `telefone_cadastral`, `email_cadastral` | `route=cnpj` | `estabelecimento_matriz.email` (telefone: campo equivalente na matriz) | não |
-| `socios[]` (nome, qualificação) | `route=cnpj` | quadro societário do payload de `route=cnpj` | não |
-| `grupo_economico[]`, `orange_flags[]` | `route=rede` (**fase 2 — fora do v1**) | — | não |
-| `site` | S4.1 (descoberta do site oficial) | — | não |
-| `emails[]` (valor + nível 1-5+) | S4.2/4.3 (descoberta + verificação) | — | não |
-| `telefones[]`, `whatsapp`, `redes_sociais{}` | S4 | — | não |
-| `contatos[]` (nome, cargo, email) | S4.2 | — | não |
-| `enriquecimento{status, motivo}` | S4 (só quando houve URL candidata) | — | não |
-| `score`, `score_breakdown{}` | S6 (scoring) | — | sim |
-| `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | — | sim |
+| `cnpj` | BaseCNPJ | `cnpj_basico` + `cnpj_completo_formatado` (14 dígitos, só números) | **sempre** (chave) |
+| `razao_social`, `nome_fantasia` | `route=cnpj` | `razao_social`, `estabelecimento_matriz.nome_fantasia` | quando houver dado |
+| `cnae_principal`, `cnaes_secundarios` | `route=cnpj` | `cnaes[]` — item com `tipo="Principal"`; os demais são os secundários | quando houver dado |
+| `situacao_cadastral`, `data_abertura`, `porte`, `capital_social` | `route=cnpj` | `estabelecimento_matriz.situacao_descricao`, `estabelecimento_matriz.data_inicio_atividade`, `porte_descricao`, `capital_social` | quando houver dado |
+| `natureza_juridica` | `route=cnpj` | `natureza_juridica_descricao` | quando houver dado |
+| `matriz_filial` (`"matriz"` \| `"filial"`) | `route=cnpj` | `estabelecimentos[]` — o item cujo `cnpj_completo_formatado` é o do lead; `matriz_filial_codigo` `"1"` = matriz | quando houver dado |
+| `endereco` (logradouro, município, UF, CEP) | `route=cnpj` | `estabelecimento_matriz.{logradouro,municipio,uf,cep}` | quando houver dado |
+| `email_cadastral` | `route=cnpj` | `estabelecimento_matriz.email` | quando houver dado |
+| `telefone_cadastral` | `route=cnpj` | `telefones[0]` da **raiz** do payload (não da matriz), formatado `(DDD) número` | quando houver dado |
+| `socios[]` | `route=cnpj` | repassado se o payload trouxer `socios`; **ainda não mapeado no modelo** (ver issue "decisor provável") | quando houver dado |
+| `grupo_economico[]`, `orange_flags[]` | `route=rede` (**fase 2 — fora do v1**) | — | não emitido |
+| `site` | S4.1 (descoberta do site oficial) | URL final após redirects | só com site confirmado |
+| `emails[]` (`valor`, `nivel` 0-5, `confianca`) | S4.2/4.3 (descoberta + verificação) | `confianca`: `invalido`, `baixa`, `media`, `boa`, `alta`, `alta_nominal` ou `maxima` (bate com o e-mail cadastral) | só com site confirmado |
+| `telefones[]`, `whatsapp[]`, `redes_sociais{}` | S4 | só números (telefone/WhatsApp); `redes_sociais` é `{rede: url}` | só com site confirmado |
+| `contatos[]` (nome, cargo, email) | S4.2 | **não emitido no v1** — extrair pessoa+cargo de HTML livre fica com o Claude, não com script | não emitido |
+| `enriquecimento{status, motivo}` | S4 | `status`: `ok`, `requer_navegador`, `match_fraco` ou `falha`; `motivo` traz o erro (ex. `http_404`) | só com URL candidata |
+| `score`, `score_breakdown{}` | S6 (scoring) | `score_breakdown` traz as 4 dimensões e o `total` | **sempre** |
+| `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel` | quando houver |
+| `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | `fonte`: `basecnpj`, `scraping` ou `pipeline` | **sempre** |
+
+**Campo sem dado não aparece** na saída (em vez de vir `null`); só `cnpj`, `score`, `score_breakdown` e `proveniencia` estão sempre presentes.
 
 Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`) para os modelos Pydantic reais, e `references/basecnpj.md` para o levantamento completo do formato observado.
 
@@ -31,6 +36,16 @@ Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`) para o
 | qualidade do contato (nível do e-mail, telefone, WhatsApp) | 30 | cadastral + scraping |
 | presença digital (site validado, redes ativas) | 20 | scraping |
 | saúde cadastral (situação, tempo de casa, capital) | 20 | BaseCNPJ |
+
+## Contrato tipado (fonte da verdade)
+
+O contrato de saída está em `scripts/pipeline/schemas.py` (modelos Pydantic) e **toda saída é validada contra ele antes de ser impressa**; se o pipeline produzir algo fora do contrato, o CLI responde `{"erro": "saida_invalida", ...}` em vez de imprimir. O JSON Schema equivalente está em [`schemas/lead.schema.json`](./lead.schema.json), gerado a partir dos modelos:
+
+```bash
+uv run python -m scripts.pipeline.schemas > schemas/lead.schema.json
+```
+
+Um teste garante que o arquivo versionado está em sincronia com os modelos, e `tests/snapshots/` guarda a saída de referência de `descobrir`, `prospectar` e `validar-lista`.
 
 ## Saída
 

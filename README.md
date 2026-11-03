@@ -214,6 +214,8 @@ Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não t
 
 📋 `descartados` lista os leads que não entraram na saída (`cnpj` + `motivo`: ICP divergente ou CNPJ não encontrado), e `enriquecimento.status` (`ok`, `requer_navegador`, `match_fraco` ou `falha`) explica o resultado do scraping de cada lead com site candidato.
 
+📐 O formato da saída é um contrato tipado (`scripts/pipeline/schemas.py`, JSON Schema em [`schemas/lead.schema.json`](./schemas/lead.schema.json)), validado antes de ser impresso.
+
 🔎 Todo campo carrega sua origem em `proveniencia` — pra qualquer dado, dá pra responder **"de onde veio isso e quando"**.
 
 ---
@@ -243,17 +245,19 @@ base-scraping/
 │   ├── enriquecimento.md        # 🌐 receita do scraping (site, contato, e-mail, contexto)
 │   └── compliance.md            # 🔒 LGPD, robots.txt, rate limiting
 ├── schemas/
-│   └── lead.md                  # 🧾 contrato de dados do Lead
+│   ├── lead.md                  # 🧾 contrato de dados do Lead (documentação)
+│   └── lead.schema.json         # 📐 JSON Schema das saídas (gerado dos modelos Pydantic)
 ├── scripts/
 │   ├── basecnpj/                # 📡 cliente da API (cache, retry, mapa de erros)
 │   ├── pipeline/                # 🔁 descoberta, validação, score, export
 │   ├── scraping/                # 🌐 site oficial, contatos, verificação de e-mail
 │   ├── utils.py                 # 🧰 helpers compartilhados (only_digits)
+│   ├── log.py                   # 📣 logs de progresso em stderr (--verbose/--quiet)
 │   ├── cli.py                   # 🛠️ CLI de teste manual das 6 rotas do BaseCNPJ
 │   └── pipeline_cli.py          # 🚀 CLI principal: descobrir / prospectar / validar-lista
 ```
 
-> ℹ️ A suíte de testes (`tests/`) e o `uv.lock` ficam só no ambiente de desenvolvimento e não são publicados neste repositório — a skill não precisa deles para rodar.
+> 🧪 `tests/` (pytest, sem rede e sem token) e `uv.lock` são versionados e rodam no CI a cada push/PR (`ruff`, `mypy`, `pytest`). Localmente: `uv sync --group dev && uv run pytest`; contra a API real: `uv run pytest -m integration`.
 
 ---
 
