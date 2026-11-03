@@ -75,9 +75,11 @@ class Excluir(_Modelo):
 
 
 class Prioridade(_Modelo):
-    """Cortes de score para a prioridade A/B/C."""
+    """Cortes de score para a prioridade A/B/C. O padrão foi calibrado em dados reais: sem site, o máximo é
+    64 (nicho principal + WhatsApp + cadastro saudável), então A ≥ 62 é "dá para abordar hoje".
+    """
 
-    corte_a: float = 70
+    corte_a: float = 62
     corte_b: float = 50
 
     @model_validator(mode="after")
@@ -226,3 +228,48 @@ def fit(validacao: ValidacaoResult, enrichment: EnrichmentResult | None, perfil:
     """Média dos critérios ativos (0 a 1)."""
     criterios = criterios_fit(validacao, enrichment, perfil)
     return sum(criterios.values()) / len(criterios) if criterios else 0.0
+
+
+def _reais(valor: float) -> str:
+    if valor >= 1_000_000:
+        return f"R$ {valor / 1_000_000:.1f} mi".replace(".", ",").replace(",0 mi", " mi")
+    if valor >= 1_000:
+        return f"R$ {valor / 1_000:.0f} mil"
+    return f"R$ {valor:.0f}"
+
+
+def descrever_criterios(
+    validacao: ValidacaoResult, enrichment: EnrichmentResult | None, perfil: PerfilICP
+) -> list[tuple[str, float]]:
+    """(texto em linguagem de vendas, encaixe 0–1) para cada critério ativo, na ordem de `criterios_fit`."""
+    from scripts.pipeline.sinais import idade_em_anos, unidades_ativas  # import tardio: evita ciclo
+
+    detalhe = validacao.detalhe
+    textos: list[tuple[str, float]] = []
+    for nome, encaixe in criterios_fit(validacao, enrichment, perfil).items():
+        texto = nome
+        if nome == "capital_social" and perfil.capital_social is not None:
+            capital = float(detalhe.capital_social) if detalhe and detalhe.capital_social is not None else 0.0
+            texto = f"capital social {_reais(capital)} (ideal a partir de {_reais(perfil.capital_social.ideal)})"
+        elif nome == "anos_de_mercado" and perfil.anos_de_mercado is not None:
+            idade = idade_em_anos(detalhe) if detalhe else None
+            anos = f"{int(idade)} anos de mercado" if idade is not None else "tempo de mercado desconhecido"
+            texto = f"{anos} (ideal a partir de {perfil.anos_de_mercado.ideal:g})"
+        elif nome == "unidades" and perfil.unidades is not None:
+            n = unidades_ativas(detalhe) if detalhe else 1
+            unidades = f"{n} unidades ativas" if n > 1 else "1 unidade ativa"
+            texto = f"{unidades} (ideal a partir de {perfil.unidades.ideal:g})"
+        elif nome == "portes_preferidos":
+            texto = "porte preferido" if encaixe else "porte fora do preferido"
+        elif nome == "municipios_prioritarios":
+            texto = "município prioritário" if encaixe else "fora dos municípios prioritários"
+        elif nome == "cnaes_prioritarios":
+            texto = {1.0: "CNAE prioritário", 0.5: "CNAE prioritário só como secundário"}.get(
+                encaixe, "CNAE fora dos prioritários"
+            )
+        elif nome == "tecnologias":
+            texto = "usa tecnologia do perfil no site" if encaixe else "sem tecnologia do perfil detectada no site"
+        elif nome == "whatsapp":
+            texto = "tem celular/WhatsApp cadastral" if encaixe else "sem celular/WhatsApp cadastral"
+        textos.append((texto, encaixe))
+    return textos

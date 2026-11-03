@@ -63,6 +63,24 @@ class ScoreBreakdown(_Modelo):
     total: float
 
 
+class Canal(_Modelo):
+    tipo: Literal["whatsapp", "email", "telefone", "site"]
+    valor: str
+
+
+class Resumo(_Modelo):
+    """Boletim do lote: quanto dele dá para trabalhar já."""
+
+    total: int
+    por_prioridade: dict[Literal["A", "B", "C"], int]
+    com_decisor: int
+    com_canal_direto: int
+    com_whatsapp: int
+    com_site: int
+    com_contato_de_contador: int
+    mei: int
+
+
 class Lead(_Modelo):
     cnpj: str
     # cadastral (BaseCNPJ, route=cnpj)
@@ -93,6 +111,12 @@ class Lead(_Modelo):
     # pipeline
     score: float
     score_breakdown: ScoreBreakdown
+    # explicação em linguagem de vendas (S6)
+    prioridade: Literal["A", "B", "C"]
+    motivos: list[str] | None = None  # um por item que pesou no score, com os pontos
+    alertas: list[str] | None = None  # o que cuidar, já com a ação
+    canal_direto: bool
+    melhor_canal: Canal | None = None
     flags: list[str] | None = None
     proveniencia: dict[str, Proveniencia]
 
@@ -139,12 +163,14 @@ class SaidaProspectar(_Modelo):
     validados: int
     esgotou_busca: bool
     leads: list[Lead]
+    resumo: Resumo
     descartados: list[Descartado]
 
 
 class SaidaValidarLista(_Modelo):
     total: int
     leads: list[Lead]
+    resumo: Resumo
     descartados: list[Descartado]
     nao_resolvidos: list[NaoResolvido]
     aviso: str | None = None

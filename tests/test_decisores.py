@@ -204,3 +204,45 @@ def test_nenhum_dado_pessoal_alem_do_nome_chega_a_saida_do_cli(api, tmp_path):
     assert json.loads(resultado.stdout)["leads"][0]["decisores"][0]["nome"] == "ANA SOUZA"
     for vazamento in ("***", "987.654", "faixa_etaria", "41 a 50 anos", "documento_mascarado"):
         assert vazamento not in resultado.stdout
+
+
+@pytest.mark.parametrize(
+    "nome, pj",
+    [
+        ("ALFA ASSESSORIA EMPRESARIAL E PARTICIPACOES LTDA", True),  # caso real: CNPJ mascarado como CPF
+        ("FULANO PARTICIPAÇÕES S/A", True),
+        ("ACME S.A.", True),
+        ("ACME S.A", True),
+        ("XYZ HOLDING", True),
+        ("COMERCIAL BETA EIRELI", True),
+        ("JOAO DA SILVA ME", True),
+        ("MARIA DE SA", False),  # Sá é sobrenome
+        ("ANA SAMPAIO", False),
+        ("CARLOS MELO", False),
+        ("CARLOS ALBERTO SOUZA", False),
+    ],
+)
+def test_parece_pessoa_juridica(nome, pj):
+    from scripts.basecnpj.models import parece_pessoa_juridica
+
+    assert parece_pessoa_juridica(nome) is pj
+
+
+def test_socio_empresa_com_documento_mascarado_como_cpf_nao_e_decisor():
+    from scripts.basecnpj.models import CNPJDetalhe
+
+    raw = make_cnpj_raw(
+        socios=[
+            {"nome_razao": "ALFA ASSESSORIA EMPRESARIAL E PARTICIPACOES LTDA", "tipo_socio": "1",
+             "documento_mascarado": "***.***.*27-**", "qualificacao_descricao": "Sócio"},
+            {"nome_razao": "CARLOS ALBERTO SOUZA", "tipo_socio": "1",
+             "documento_mascarado": "***.***.*48-**", "qualificacao_descricao": "Administrador"},
+        ]
+    )
+    detalhe = CNPJDetalhe.model_validate(raw)
+    assert [d.nome for d in detalhe.decisores()] == ["CARLOS ALBERTO SOUZA"]
+    # checkpoint antigo (pessoa_fisica=True gravado antes da correção) também é filtrado
+    recarregado = CNPJDetalhe.model_validate(
+        {**detalhe.model_dump(), "socios": [{**s.model_dump(), "pessoa_fisica": True} for s in detalhe.socios]}
+    )
+    assert [d.nome for d in recarregado.decisores()] == ["CARLOS ALBERTO SOUZA"]

@@ -37,7 +37,7 @@ excluir:
   mei: true            # MEI não tem estrutura para o ticket
   empresa_nova: false  # aberta há menos de 6 meses
 
-# Cortes da prioridade A/B/C (score de 0 a 100).
+# Cortes da prioridade A/B/C (score de 0 a 100). A exige também canal direto e decisor; sem canal é C.
 prioridade:
-  corte_a: 70
+  corte_a: 62
   corte_b: 50

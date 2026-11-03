@@ -11,7 +11,7 @@ FLAG_CONTADOR = "contato_de_contador"
 
 # `consult`/`escritorio` ficam de fora: "consultorio" e "consultoria" são comuns em saúde e serviços
 # (falso positivo medido em amostra real de dentistas). `.cnt.br` é o TLD reservado a contabilidade.
-_PALAVRAS_CONTABEIS = re.compile(r"contab|contador|contmais|assessoria")
+_PALAVRAS_CONTABEIS = re.compile(r"contab|contador|assessoria")
 _TLD_CONTABIL = ".cnt.br"
 
 
@@ -20,7 +20,7 @@ def _digitos(valor: str) -> str:
 
 
 def sinal_email_contabil(email: str | None) -> bool:
-    """Palavra contábil na parte local ou no domínio do e-mail (`bonfimcontabil.com.br`, `dearo.contabil@gmail.com`)."""
+    """Palavra contábil na parte local ou no domínio do e-mail (`silvacontabil.com.br`, `fulano.contabil@gmail.com`)."""
     if not email or "@" not in email:
         return False
     email = email.strip().lower()

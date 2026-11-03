@@ -24,10 +24,17 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `contatos[]` (nome, cargo, email) | S4.2 | **não emitido no v1** — extrair pessoa+cargo de HTML livre fica com o Claude, não com script | não emitido |
 | `enriquecimento{status, motivo}` | S4 | `status`: `ok`, `requer_navegador`, `match_fraco` ou `falha`; `motivo` traz o erro (ex. `http_404`) | só com URL candidata |
 | `score`, `score_breakdown{}` | S6 (scoring) | `score_breakdown` traz as 4 dimensões e o `total`; com perfil (`--perfil`/`icp.yaml`) que dá peso ao fit, traz também `fit` e as dimensões reescaladas para os pesos do perfil | **sempre** |
+| `prioridade` | S6 | `A` (score ≥ `corte_a` **e** canal direto **e** decisor: abordar já), `B` (score ≥ `corte_b` com canal), `C` (score baixo ou sem canal direto). Cortes padrão 62/50, ou os do `prioridade` no perfil | **sempre** |
+| `motivos[]` | S6 | um por item que pesou no score, com os pontos (`"celular no cadastro (provável WhatsApp) (+6)"`); a soma bate com `score` | quando houver |
+| `alertas[]` | S6 | o que cuidar, já com a ação (`"…parece ser do contador: … prefira WhatsApp ou site."`) | quando houver |
+| `canal_direto` | S6 | há como falar com a empresa sem passar pelo contador | **sempre** |
+| `melhor_canal{tipo, valor}` | S6 | por onde falar primeiro: `whatsapp` (`+55…`) > `email` confirmado no site > `email` cadastral (não contador) > `telefone` > `site` | com canal direto |
 | `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel`, `contato_de_contador` (e-mail/telefone cadastral provavelmente do escritório de contabilidade: não leva ao decisor e perde o bônus de contato no score), `whatsapp_provavel` (celular cadastral próprio: +6 em qualidade de contato), `mei` (microempreendedor individual: ticket e estrutura mínimos), `multiunidade` (mais de um estabelecimento ativo) | quando houver |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | `fonte`: `basecnpj`, `scraping` ou `pipeline` | **sempre** |
 
-**Campo sem dado não aparece** na saída (em vez de vir `null`); só `cnpj`, `score`, `score_breakdown` e `proveniencia` estão sempre presentes.
+**Campo sem dado não aparece** na saída (em vez de vir `null`); só `cnpj`, `score`, `score_breakdown`, `prioridade`, `canal_direto` e `proveniencia` estão sempre presentes.
+
+A saída de `prospectar` e `validar-lista` traz também `resumo` (o boletim do lote): `total`, `por_prioridade{A,B,C}`, `com_decisor`, `com_canal_direto`, `com_whatsapp`, `com_site`, `com_contato_de_contador`, `mei`. Os leads vêm ordenados por prioridade, depois score (no empate: fit, capital, tempo de mercado).
 
 Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`) para os modelos Pydantic reais, e `references/basecnpj.md` para o levantamento completo do formato observado.
 

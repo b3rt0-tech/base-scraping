@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -62,6 +63,19 @@ def _sem_acento(texto: str | None) -> str:
     return "".join(c for c in base if not unicodedata.combining(c)).strip()
 
 
+# Marcas de pessoa jurídica no nome do sócio. A API às vezes mascara o CNPJ de um sócio-empresa como se fosse
+# CPF ("***.***.*27-**") e marca tipo_socio "1" (visto em holdings "... PARTICIPACOES LTDA"), então o nome é a
+# última linha de defesa. "SA" solto fica de fora: é sobrenome (Sá); só a forma pontuada S.A./S/A conta.
+_MARCA_PJ = re.compile(
+    r"\b(ltda|limitada|eireli|holding|participacoes|empreendimentos|investimentos|administradora|"
+    r"associacao|fundacao|fundo|cooperativa|condominio)\b|\bs\s*[./]\s*a\b\.?|\s(me|epp)$"
+)
+
+
+def parece_pessoa_juridica(nome: str | None) -> bool:
+    return bool(_MARCA_PJ.search(_sem_acento(nome)))
+
+
 class Socio(BaseModel):
     """Sócio/administrador de `socios[]` (raiz de route=cnpj), só com o que o pipeline usa.
 
@@ -86,6 +100,7 @@ class Socio(BaseModel):
         # CPF mascarado ("***.***.*37-**") é o sinal confiável de pessoa física; tipo_socio "1" confere nos dados
         # reais (177/177), mas "3" é estrangeiro e o código não é documentado, então o documento vem primeiro.
         pessoa_fisica = documento.startswith("***.") or (not documento and dados.get("tipo_socio") == "1")
+        pessoa_fisica = pessoa_fisica and not parece_pessoa_juridica(dados["nome_razao"])
         return {
             "nome": (dados["nome_razao"] or "").strip(),  # a API devolve nomes com espaço no fim
             "qualificacao": (dados.get("qualificacao_descricao") or "").strip() or None,
@@ -171,7 +186,8 @@ class CNPJDetalhe(BaseModel):
         estrangeiro não é decisor.
         """
         pessoas = sorted(
-            (s for s in self.socios if s.pessoa_fisica),
+            # o nome é conferido de novo aqui: checkpoints antigos guardaram pessoa_fisica sem essa checagem
+            (s for s in self.socios if s.pessoa_fisica and not parece_pessoa_juridica(s.nome)),
             key=lambda s: (_prioridade(s.qualificacao), s.entrada or "9999", _sem_acento(s.nome)),
         )
         vistos: set[str] = set()
