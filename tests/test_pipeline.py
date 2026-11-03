@@ -25,7 +25,7 @@ def _icp(**kwargs) -> icp.ICP:
 
 def test_dicionario_cnae_carrega_todos_os_nichos():
     entradas = icp.load_cnae_dictionary(CNAE_DICT_PATH)
-    assert len(entradas) == 11
+    assert 60 <= len(entradas) <= 100
     assert all(e.aliases and e.cnaes for e in entradas)
 
 
@@ -77,7 +77,8 @@ def test_nicho_ambiguo_pede_confirmacao_e_lista_candidatos():
     resultado = _icp(nicho="loja")
     assert resultado.needs_confirmation
     assert resultado.cnaes == []
-    assert resultado.candidatos == ["loja de roupas, boutique", "ótica, ótica de óculos, loja de óculos"]
+    assert {"loja de roupas, boutique", "ótica, ótica de óculos, loja de óculos"} <= set(resultado.candidatos)
+    assert len(resultado.candidatos) > 2  # "loja" é genérico: o usuário escolhe entre as lojas do dicionário
     assert icp.resolve_nicho("loja", icp.load_cnae_dictionary(CNAE_DICT_PATH)) is None
 
 
@@ -395,3 +396,29 @@ async def test_validate_lead_cnae_por_prefixo_como_a_busca(nicho, principal, sec
     resultado = await _validar(make_cnpj_raw(cnaes=cnaes), nicho=nicho)
     assert resultado.cnae_match == esperado
     assert resultado.status == ("validado" if esperado else "descartado")
+
+
+@pytest.mark.parametrize(
+    "nicho, cnaes",
+    [
+        ("clínica de fisioterapia", ["8650004"]),
+        ("farmácia de manipulação", ["4771702"]),
+        ("drogaria", ["4771701"]),
+        ("imobiliária", ["6821801", "6822600"]),
+        ("condomínio", ["8112500"]),
+        ("escola de idiomas", ["8593700"]),
+        ("software house", ["6201501", "6202300", "6203100"]),
+        ("ar condicionado", ["4322302"]),
+        ("lava jato", ["4520005"]),
+    ],
+)
+def test_nichos_novos_do_dicionario(nicho, cnaes):
+    entrada = icp.resolve_nicho(nicho, icp.load_cnae_dictionary(CNAE_DICT_PATH))
+    assert entrada is not None and entrada.cnaes == cnaes
+
+
+def test_cnaes_do_dicionario_sao_prefixos_validos():
+    """4, 5 ou 7 dígitos (grupo, classe ou subclasse) — o mesmo prefixo que a busca avançada aceita."""
+    for entrada in icp.load_cnae_dictionary(CNAE_DICT_PATH):
+        for cnae in entrada.cnaes:
+            assert cnae.isdigit() and len(cnae) in (4, 5, 7), (entrada.aliases[0], cnae)
