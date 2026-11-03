@@ -29,7 +29,7 @@ Com as duas respostas, **não faça mais perguntas**, exceto se estiver travado 
 1. Rode `uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio "<cidade>"] [--porte …] --perfil <perfil.yaml>`.
    - Acrescente `--excluir <arquivo>` se o usuário tiver citado um export do CRM ou uma lista de clientes nas respostas.
    - O teto é de 100 leads validados.
-2. Para os leads **A e B** que vierem sem `site`, procure o site oficial na web (nome fantasia ou razão social + cidade). Grave `{"<cnpj>": "<url>"}` e rode o **mesmo** comando com `--sites-json <arquivo>`; é rápido, porque reaproveita o checkpoint e o cache.
+2. Procure o site oficial na web (nome fantasia ou razão social + cidade) para os leads que vierem sem `site` e sejam **A ou B**, ou **C só por falta de canal** (alerta "Sem canal direto", geralmente quando o único contato do cadastro é o do contador). O site é o caminho para achar o canal deles. Grave `{"<cnpj>": "<url>"}` e rode o **mesmo** comando com `--sites-json <arquivo>`; é rápido, porque reaproveita o checkpoint e o cache.
 3. **Qualifique cada lead** (`valido` / `talvez` / `descartar`, com motivo e abordagem) e escreva a **1ª mensagem** de cada lead A válido, como manda o `consultoria.md`. Grave em JSON e rode o mesmo comando com `--qualificacoes <arquivo> --formato xlsx`.
 
 ## Passo 5 — entregar

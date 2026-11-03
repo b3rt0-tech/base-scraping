@@ -13,6 +13,7 @@
   "esgotou_busca": true,
   "excluidos": 0,
   "ja_trabalhados": 0,
+  "mesma_empresa": 0,
   "leads": [
     {
       "cnpj": "12345678000195",
