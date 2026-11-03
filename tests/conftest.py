@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,16 @@ def erro(status: int, code: str, message: str = "", headers: dict[str, str] | No
 
 
 @pytest.fixture(autouse=True)
+def isolar_logger():
+    """O CLI aponta o logger para o stderr do CliRunner (que fecha ao fim da chamada): desfaz depois do teste."""
+    yield
+    logger = logging.getLogger("base_scraping")
+    logger.handlers.clear()
+    logger.setLevel(logging.NOTSET)
+    logger.propagate = True
+
+
+@pytest.fixture(autouse=True)
 def isolar_ambiente(request, monkeypatch, tmp_path):
     """Cache em tmp, sem espera de retry/delay e sem DNS real. Testes offline usam
     token falso — o token real do `.env` só é usado nos testes `integration`.
@@ -116,3 +127,30 @@ def api(respx_mock):
         return chamadas
 
     return configurar
+
+
+OUTRO_CNPJ = "98765432000110"
+
+
+def cnpj_handler(por_cnpj: dict[str, dict | httpx.Response]):
+    """Handler de `route=cnpj` que responde conforme o CNPJ pedido."""
+
+    def handler(request):
+        resposta = por_cnpj[request.url.params["cnpj"]]
+        return resposta if isinstance(resposta, httpx.Response) else ok(resposta)
+
+    return handler
+
+
+@pytest.fixture
+def api_dentista(api):
+    """API simulada com 2 leads descobertos: um ativo (CNPJ_PADRAO) e um baixado (OUTRO_CNPJ)."""
+    return api(
+        {
+            "status": {"status": "ok"},
+            "avancada": {"items": [{"cnpj_completo": CNPJ_PADRAO}, {"cnpj_completo": OUTRO_CNPJ}], "total_pages": 1},
+            "cnpj": cnpj_handler(
+                {CNPJ_PADRAO: make_cnpj_raw(), OUTRO_CNPJ: make_cnpj_raw(matriz={"situacao_cadastral": "08"})}
+            ),
+        }
+    )

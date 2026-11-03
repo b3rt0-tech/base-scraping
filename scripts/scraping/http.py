@@ -13,6 +13,9 @@ import httpx
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from scripts.basecnpj.cache import get_or_fetch
+from scripts.log import get_logger
+
+log = get_logger("scraping")
 
 USER_AGENT = "base-scraping/0.1 (+https://github.com/Mettric/base-scraping; contato B2B automatizado)"
 SCRAPING_CACHE_DIR = Path(".cache/scraping")
@@ -53,6 +56,16 @@ def _retry_wait(retry_state) -> float:
     if isinstance(exc, HttpStatusError) and exc.retry_after is not None:
         return min(exc.retry_after, MAX_RETRY_WAIT_SECONDS)
     return _DEFAULT_BACKOFF(retry_state)
+
+
+def _log_retry(retry_state) -> None:
+    exc = retry_state.outcome.exception()
+    log.warning(
+        "scraping: tentativa %d falhou (%s); nova tentativa em %.1fs",
+        retry_state.attempt_number,
+        exc,
+        retry_state.next_action.sleep,
+    )
 
 
 def _parse_retry_after(value: str | None) -> float | None:
@@ -181,6 +194,7 @@ async def fetch(
                 retry=retry_if_exception(_retentavel),
                 stop=stop_after_attempt(FETCH_ATTEMPTS),
                 wait=_retry_wait,
+                before_sleep=_log_retry,
                 reraise=True,
             ):
                 with tentativa:

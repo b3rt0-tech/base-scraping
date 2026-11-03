@@ -170,6 +170,8 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--matriz` | só estabelecimentos **matriz** (exclui filiais; envia `matriz_filial=1` na busca avançada) |
 | `--situacao` | (também em `validar-lista`) situação cadastral desejada (padrão: `ativa`) |
 | `--db-path` | onde fica o checkpoint SQLite (padrão: `.cache/pipeline.sqlite3`) |
+| `--verbose` / `-v` | detalhe de cada lead no **stderr** (o stdout continua só com o JSON) |
+| `--quiet` / `-q` | só avisos e erros no stderr (sem progresso) |
 | `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
 
 Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não tem os campos de site/e-mail/redes sociais, que dependem de uma URL candidata (achada via busca web, fora do escopo do script; ver `SKILL.md`).

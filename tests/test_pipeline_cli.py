@@ -8,37 +8,13 @@ from typer.testing import CliRunner
 
 from scripts.pipeline_cli import app
 
-from .conftest import CNPJ_PADRAO, erro, make_cnpj_raw, ok
+from .conftest import CNPJ_PADRAO, OUTRO_CNPJ, cnpj_handler, erro, make_cnpj_raw
 
 runner = CliRunner()
-
-OUTRO_CNPJ = "98765432000110"
-
-
-def _cnpj_handler(por_cnpj: dict[str, dict | httpx.Response]):
-    def handler(request):
-        resposta = por_cnpj[request.url.params["cnpj"]]
-        return resposta if isinstance(resposta, httpx.Response) else ok(resposta)
-
-    return handler
-
 
 def _rodar(*args: str) -> tuple[int, dict]:
     resultado = runner.invoke(app, list(args))
     return resultado.exit_code, json.loads(resultado.stdout)
-
-
-@pytest.fixture
-def api_dentista(api):
-    return api(
-        {
-            "status": {"status": "ok"},
-            "avancada": {"items": [{"cnpj_completo": CNPJ_PADRAO}, {"cnpj_completo": OUTRO_CNPJ}], "total_pages": 1},
-            "cnpj": _cnpj_handler(
-                {CNPJ_PADRAO: make_cnpj_raw(), OUTRO_CNPJ: make_cnpj_raw(matriz={"situacao_cadastral": "08"})}
-            ),
-        }
-    )
 
 
 def test_descobrir(api_dentista, tmp_path):
@@ -191,7 +167,7 @@ def test_validar_lista(api, tmp_path):
         {
             "status": {"status": "ok"},
             "sugestao": {"items": [{"cnpj_completo": OUTRO_CNPJ}]},
-            "cnpj": _cnpj_handler({CNPJ_PADRAO: make_cnpj_raw(), OUTRO_CNPJ: erro(404, "not_found")}),
+            "cnpj": cnpj_handler({CNPJ_PADRAO: make_cnpj_raw(), OUTRO_CNPJ: erro(404, "not_found")}),
         }
     )
     lista = tmp_path / "lista.json"
