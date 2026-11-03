@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="212" viewBox="0 0 1200 212" role="img" aria-labelledby="t d">
+  <title id="t">Boletim de uma rodada real</title>
+  <desc id="d">Dentistas em Campinas/SP: 100 leads validados, 100% com decisor, 85% com canal direto, prioridade A/B/C 42/42/16 e nenhum empate no top 20.</desc>
+  <defs>
+    <style>
+      .sans { font-family: Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; }
+      .tile { fill: #131a2a; stroke: #ffffff; stroke-opacity: .1; }
+      .v { fill: #f0f3f8; font-size: 38px; font-weight: 700; letter-spacing: -1px; }
+      .l { fill: #f0f3f8; fill-opacity: .56; font-size: 13.5px; }
+    </style>
+  </defs>
+  <rect width="1200" height="212" rx="20" fill="#0a0e16"/>
+  <rect x=".5" y=".5" width="1199" height="211" rx="19.5" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+
+  <text x="32" y="44" class="mono" font-size="12" font-weight="500" letter-spacing=".04em" fill="#8f97e6">RODADA REAL · DENTISTAS EM CAMPINAS/SP · v0.2.0</text>
+
+  <!-- 5 tiles: largura 214, passo 228, início 32 -->
+  <g class="sans">
+    <g transform="translate(32 68)">
+      <rect width="214" height="112" rx="12" class="tile"/>
+      <text x="20" y="56" class="v">100</text>
+      <text x="20" y="86" class="l">leads validados</text>
+    </g>
+    <g transform="translate(260 68)">
+      <rect width="214" height="112" rx="12" class="tile"/>
+      <text x="20" y="56" class="v">100%</text>
+      <text x="20" y="86" class="l">com decisor</text>
+    </g>
+    <g transform="translate(488 68)">
+      <rect width="214" height="112" rx="12" class="tile"/>
+      <text x="20" y="56" class="v">85%</text>
+      <text x="20" y="86" class="l">com canal direto</text>
+    </g>
+    <g transform="translate(716 68)">
+      <rect width="214" height="112" rx="12" class="tile"/>
+      <text x="20" y="54" class="v" style="font-size:29px"><tspan fill="#FF8A4C">42</tspan><tspan fill-opacity=".35"> / </tspan><tspan fill="#8f97e6">42</tspan><tspan fill-opacity=".35"> / </tspan>16</text>
+      <text x="20" y="86" class="l">prioridade A / B / C</text>
+    </g>
+    <g transform="translate(944 68)">
+      <rect width="224" height="112" rx="12" class="tile"/>
+      <text x="20" y="56" class="v">0</text>
+      <text x="20" y="86" class="l">empates no top 20</text>
+    </g>
+  </g>
+</svg>

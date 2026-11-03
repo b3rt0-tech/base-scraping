@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="236" viewBox="0 0 1200 236" role="img" aria-labelledby="t d">
+  <title id="t">Pipeline do base-scraping</title>
+  <desc id="d">Nicho para CNAE, descoberta no BaseCNPJ, validação cadastral, sinais de venda, enriquecimento, score A/B/C e consultor de vendas.</desc>
+  <defs>
+    <style>
+      .sans { font-family: Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; }
+      .card { fill: #131a2a; stroke: #ffffff; stroke-opacity: .1; }
+      .num { fill: #8f97e6; font-size: 12px; font-weight: 500; letter-spacing: .04em; }
+      .h { fill: #f0f3f8; font-size: 14px; font-weight: 600; }
+      .p { fill: #f0f3f8; fill-opacity: .56; font-size: 12.5px; }
+      .src { font-size: 11px; font-weight: 500; letter-spacing: .04em; }
+    </style>
+    <clipPath id="frame"><rect width="1200" height="236" rx="20"/></clipPath>
+  </defs>
+  <rect width="1200" height="236" rx="20" fill="#0a0e16"/>
+  <rect x=".5" y=".5" width="1199" height="235" rx="19.5" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+
+  <!-- trilho -->
+  <line x1="106" x2="1066" y1="58" y2="58" stroke="#5E6AD2" stroke-opacity=".35" stroke-dasharray="3 5"/>
+
+  <!-- 7 etapas: largura 148, passo 160, início 32 -->
+  <g class="sans">
+    <g transform="translate(32 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">01</text>
+      <text x="16" y="90" class="h">Nicho → CNAE</text>
+      <text x="16" y="114" class="p">99 nichos e</text>
+      <text x="16" y="132" class="p">119 CNAEs no</text>
+      <text x="16" y="150" class="p">dicionário</text>
+    </g>
+    <g transform="translate(192 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">02</text>
+      <text x="16" y="90" class="h">Descoberta</text>
+      <text x="16" y="114" class="p">busca avançada</text>
+      <text x="16" y="132" class="p">até 100 leads</text>
+      <text x="16" y="150" class="p">validados</text>
+    </g>
+    <g transform="translate(352 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">03</text>
+      <text x="16" y="90" class="h">Validação</text>
+      <text x="16" y="114" class="p">situação, CNAE,</text>
+      <text x="16" y="132" class="p">porte, CRM e</text>
+      <text x="16" y="150" class="p">já trabalhados</text>
+    </g>
+    <g transform="translate(512 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">04</text>
+      <text x="16" y="90" class="h">Sinais</text>
+      <text x="16" y="114" class="p">decisor, WhatsApp,</text>
+      <text x="16" y="132" class="p">MEI, unidades,</text>
+      <text x="16" y="150" class="p">contador</text>
+    </g>
+    <g transform="translate(672 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">05</text>
+      <text x="16" y="90" class="h">Enriquecimento</text>
+      <text x="16" y="114" class="p">site oficial e</text>
+      <text x="16" y="132" class="p">e-mail verificado</text>
+      <text x="16" y="150" class="p">em 5 níveis</text>
+    </g>
+    <g transform="translate(832 40)">
+      <circle cx="74" cy="18" r="6" fill="#5E6AD2"/>
+      <rect y="40" width="148" height="140" rx="12" class="card"/>
+      <text x="16" y="66" class="mono num">06</text>
+      <text x="16" y="90" class="h">Score A/B/C</text>
+      <text x="16" y="114" class="p">perfil icp.yaml,</text>
+      <text x="16" y="132" class="p">motivos e</text>
+      <text x="16" y="150" class="p">alertas</text>
+    </g>
+    <g transform="translate(992 40)">
+      <circle cx="74" cy="18" r="7" fill="#FF8A4C"/>
+      <rect y="40" width="176" height="140" rx="12" fill="#FF8A4C" fill-opacity=".08" stroke="#FF8A4C" stroke-opacity=".45"/>
+      <text x="16" y="66" class="mono num" style="fill:#FF8A4C">07 · CLAUDE</text>
+      <text x="16" y="90" class="h">Consultor</text>
+      <text x="16" y="114" class="p">veredito por lead,</text>
+      <text x="16" y="132" class="p">abordagem e</text>
+      <text x="16" y="150" class="p">1ª mensagem</text>
+    </g>
+  </g>
+</svg>

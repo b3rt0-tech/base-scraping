@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="t d">
+  <title id="t">base-scraping</title>
+  <desc id="d">Leads B2B brasileiros validados na Receita Federal, priorizados e qualificados por um consultor de vendas.</desc>
+  <defs>
+    <style>
+      .sans { font-family: Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+    <radialGradient id="glow-brand" cx="80%" cy="10%" r="65%">
+      <stop offset="0" stop-color="#5E6AD2" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#5E6AD2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-accent" cx="6%" cy="105%" r="45%">
+      <stop offset="0" stop-color="#FF8A4C" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#FF8A4C" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#ffffff" fill-opacity=".05"/>
+    </pattern>
+    <linearGradient id="score" x1="0" x2="1">
+      <stop offset="0" stop-color="#5E6AD2"/>
+      <stop offset="1" stop-color="#FF8A4C"/>
+    </linearGradient>
+    <clipPath id="frame"><rect width="1200" height="420" rx="20"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="420" fill="#0a0e16"/>
+    <rect width="1200" height="420" fill="url(#dots)"/>
+    <rect width="1200" height="420" fill="url(#glow-brand)"/>
+    <rect width="1200" height="420" fill="url(#glow-accent)"/>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="419" rx="19.5" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+
+  <!-- eyebrow -->
+  <rect x="56" y="58" width="318" height="28" rx="14" fill="#5E6AD2" fill-opacity=".12" stroke="#5E6AD2" stroke-opacity=".3"/>
+  <circle cx="74" cy="72" r="4" fill="#FF8A4C"/>
+  <text x="88" y="76.5" class="mono" font-size="12" font-weight="500" letter-spacing=".04em" fill="#c7cbf3">SKILL DO CLAUDE CODE · v0.2.0</text>
+
+  <!-- title -->
+  <text x="54" y="160" class="sans" font-size="64" font-weight="700" letter-spacing="-1.4" fill="#f0f3f8">base-scraping</text>
+  <text x="56" y="210" class="sans" font-size="21" fill="#f0f3f8" fill-opacity=".72">Leads B2B brasileiros validados na Receita Federal,</text>
+  <text x="56" y="240" class="sans" font-size="21" fill="#f0f3f8" fill-opacity=".72">priorizados e qualificados por um consultor de vendas.</text>
+
+  <!-- command -->
+  <rect x="56" y="290" width="246" height="48" rx="10" fill="#131a2a" stroke="#ffffff" stroke-opacity=".14"/>
+  <text x="76" y="320" class="mono" font-size="17" fill="#FF8A4C">&gt;</text>
+  <text x="96" y="320" class="mono" font-size="17" font-weight="500" fill="#f0f3f8">/new-leads</text>
+  <rect x="208" y="306" width="9" height="18" rx="1" fill="#5E6AD2"/>
+  <text x="320" y="312" class="sans" font-size="14" fill="#f0f3f8" fill-opacity=".48">2 perguntas: ICP/nicho e produto.</text>
+  <text x="320" y="332" class="sans" font-size="14" fill="#f0f3f8" fill-opacity=".48">O resto é com o consultor.</text>
+
+  <!-- lead card -->
+  <g transform="translate(724 52)">
+    <rect width="420" height="316" rx="14" fill="#131a2a" stroke="#ffffff" stroke-opacity=".14"/>
+    <rect x="24" y="24" width="32" height="32" rx="8" fill="#FF8A4C" fill-opacity=".16" stroke="#FF8A4C" stroke-opacity=".5"/>
+    <text x="40" y="46" text-anchor="middle" class="sans" font-size="17" font-weight="700" fill="#FF8A4C">A</text>
+    <text x="70" y="38" class="sans" font-size="16" font-weight="600" fill="#f0f3f8">CLINICA SORRISO LTDA</text>
+    <text x="70" y="56" class="mono" font-size="12" fill="#f0f3f8" fill-opacity=".48">12.345.678/0001-95 · Campinas/SP</text>
+    <rect x="322" y="26" width="74" height="24" rx="12" fill="#10b981" fill-opacity=".14"/>
+    <text x="359" y="42" text-anchor="middle" class="sans" font-size="12" font-weight="600" fill="#34d399">válido</text>
+
+    <line x1="24" x2="396" y1="76" y2="76" stroke="#ffffff" stroke-opacity=".08"/>
+
+    <text x="24" y="102" class="sans" font-size="12" fill="#f0f3f8" fill-opacity=".48">DECISOR</text>
+    <text x="24" y="122" class="sans" font-size="14" font-weight="500" fill="#f0f3f8">Ana Souza Lima · Sócia-Administradora</text>
+    <text x="24" y="152" class="sans" font-size="12" fill="#f0f3f8" fill-opacity=".48">MELHOR CANAL</text>
+    <text x="24" y="172" class="mono" font-size="14" fill="#f0f3f8">WhatsApp +55 19 99999-9999</text>
+
+    <text x="24" y="206" class="sans" font-size="12" fill="#f0f3f8" fill-opacity=".48">SCORE</text>
+    <text x="396" y="206" text-anchor="end" class="mono" font-size="13" font-weight="600" fill="#f0f3f8">94</text>
+    <rect x="24" y="216" width="372" height="6" rx="3" fill="#ffffff" fill-opacity=".08"/>
+    <rect x="24" y="216" width="350" height="6" rx="3" fill="url(#score)"/>
+
+    <text x="24" y="252" class="sans" font-size="13" fill="#f0f3f8" fill-opacity=".72">+30  nicho é a atividade principal</text>
+    <text x="24" y="274" class="sans" font-size="13" fill="#f0f3f8" fill-opacity=".72">+22  e-mail do site confere com o cadastro</text>
+    <text x="24" y="296" class="sans" font-size="13" fill="#f0f3f8" fill-opacity=".72">+12  site oficial confirmado</text>
+  </g>
+</svg>
