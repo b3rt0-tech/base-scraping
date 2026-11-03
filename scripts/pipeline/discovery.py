@@ -7,10 +7,13 @@ import httpx
 
 from scripts.basecnpj import routes
 from scripts.basecnpj.config import Settings
+from scripts.log import get_logger
 from scripts.utils import only_digits
 
 from . import db as db_module
 from .icp import ICP
+
+log = get_logger("discovery")
 
 PER_PAGE = 100  # máximo da API (confirmado: per_page maior é limitado a 100) — 1 chamada pesada em vez de ~7
 
@@ -62,12 +65,21 @@ async def discover(
                     continue
                 db_module.upsert_lead(conn, run_id, cnpj_key, status="descoberto", discovery=item)
 
+            total_pages = resposta.get("total_pages", page)
+            log.info(
+                "S1 CNAE %s: página %d/%s, %d itens (%d leads no total)",
+                cnae,
+                page,
+                total_pages,
+                len(items),
+                db_module.count_leads(conn, run_id),
+            )
+
             if target_reached:
                 # não terminamos de processar esta página — checkpoint fica nela mesma
                 db_module.save_checkpoint(conn, run_id, cnae, page)
                 return db_module.list_leads(conn, run_id, status="descoberto")
 
-            total_pages = resposta.get("total_pages", page)
             terminou = not items or page >= total_pages
             if terminou:
                 db_module.save_checkpoint(conn, run_id, cnae, page + 1, exhausted=True)
