@@ -206,6 +206,8 @@ Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não t
 }
 ```
 
+🧭 `icp` (em `descobrir` e `prospectar`) mostra qual entrada de `references/cnae.md` e quais CNAEs foram usados. Nicho que casa com mais de uma entrada (ex. `loja`) é recusado com `erro: nicho_ambiguo` em vez de escolher uma.
+
 📋 `descartados` lista os leads que não entraram na saída (`cnpj` + `motivo`: ICP divergente ou CNPJ não encontrado), e `enriquecimento.status` (`ok`, `requer_navegador`, `match_fraco` ou `falha`) explica o resultado do scraping de cada lead com site candidato.
 
 🔎 Todo campo carrega sua origem em `proveniencia` — pra qualquer dado, dá pra responder **"de onde veio isso e quando"**.

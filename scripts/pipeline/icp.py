@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,8 @@ class ICP:
     situacao: str | None = "02"
     needs_confirmation: bool = False
     filtros_extra: dict[str, Any] = field(default_factory=dict)
+    entrada_dicionario: str | None = None  # aliases da linha de references/cnae.md que casou
+    candidatos: list[str] = field(default_factory=list)  # preenchido quando o nicho é ambíguo
 
     def filtros_por_cnae(self, cnae: str) -> dict[str, Any]:
         filtros: dict[str, Any] = {"cnae": cnae}
@@ -97,22 +100,41 @@ def load_cnae_dictionary(path: Path | str = DEFAULT_CNAE_DICT_PATH) -> list[Nich
     return entries
 
 
-def resolve_nicho(nicho: str, dictionary: list[NichoEntry]) -> NichoEntry | None:
-    """Casa o nicho pedido (linguagem natural) contra os aliases do dicionário.
+_STOPWORDS = frozenset({"de", "da", "do", "das", "dos", "e", "em", "a", "o", "as", "os", "para", "com"})
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-    Match exato de alias primeiro; senão, substring nos dois sentidos (nicho contém
-    o alias, ou o alias contém o nicho) — cobre "clínica odontológica" batendo com
-    "dentista, clínica odontológica" mesmo pedindo só um pedaço da frase.
+
+def _tokens(texto: str) -> frozenset[str]:
+    """Palavras do texto sem acento, em minúsculas e sem conectivos ("de", "em"...)."""
+    sem_acento = "".join(c for c in unicodedata.normalize("NFKD", texto.lower()) if not unicodedata.combining(c))
+    return frozenset(t for t in _TOKEN_RE.findall(sem_acento) if t not in _STOPWORDS)
+
+
+def buscar_nichos(nicho: str, dictionary: list[NichoEntry]) -> list[NichoEntry]:
+    """Todas as entradas do dicionário que casam com o nicho pedido (linguagem natural).
+
+    Casa por **palavra inteira**, sem acento/caixa e ignorando conectivos: "ótica" casa com
+    "otica", e "pet" não casa mais com "carpete". Alias exato vence; senão vale o alias estar
+    contido no pedido ("dentista em campinas") ou o pedido ser parte do alias ("clínica
+    odontológica" em "dentista, clínica odontológica"). Mais de uma entrada = nicho ambíguo.
     """
-    needle = nicho.strip().lower()
-    for entry in dictionary:
-        if needle in entry.aliases:
-            return entry
-    for entry in dictionary:
-        for alias in entry.aliases:
-            if needle in alias or alias in needle:
-                return entry
-    return None
+    alvo = _tokens(nicho)
+    if not alvo:
+        return []
+    exatas = [e for e in dictionary if any(_tokens(alias) == alvo for alias in e.aliases)]
+    if exatas:
+        return exatas
+    return [
+        e
+        for e in dictionary
+        if any(t and (t <= alvo or alvo <= t) for t in (_tokens(alias) for alias in e.aliases))
+    ]
+
+
+def resolve_nicho(nicho: str, dictionary: list[NichoEntry]) -> NichoEntry | None:
+    """A entrada do nicho, ou None se não houver nenhuma **ou se for ambíguo** (nunca escolhe a primeira)."""
+    candidatas = buscar_nichos(nicho, dictionary)
+    return candidatas[0] if len(candidatas) == 1 else None
 
 
 def build_icp(
@@ -128,7 +150,8 @@ def build_icp(
 ) -> ICP:
     """Monta o ICP estruturado (S0). Se o nicho não bater no dicionário, devolve
     needs_confirmation=True e cnaes=[] — quem chama (o skill) deve confirmar com o
-    usuário antes de qualquer paginação, nunca inventar um CNAE aqui.
+    usuário antes de qualquer paginação, nunca inventar um CNAE aqui. Se o nicho casar
+    com mais de uma entrada, também é needs_confirmation e `candidatos` lista as opções.
 
     `cep` aceita prefixo (ex. "0507" cobre vários CEPs de um bairro/região — a API
     faz match por prefixo, confirmado empiricamente; ver references/basecnpj.md).
@@ -138,7 +161,8 @@ def build_icp(
     `matriz=True` restringe a descoberta a matrizes (`matriz_filial="1"`).
     """
     dictionary = load_cnae_dictionary(cnae_dict_path)
-    entry = resolve_nicho(nicho, dictionary)
+    candidatas = buscar_nichos(nicho, dictionary)
+    entry = candidatas[0] if len(candidatas) == 1 else None
 
     situacao_codigo = SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao) if situacao else None
     porte_codigo = PORTE_CODIGOS.get(porte.strip().lower(), porte) if porte else None
@@ -156,6 +180,7 @@ def build_icp(
             situacao=situacao_codigo,
             needs_confirmation=True,
             filtros_extra=filtros_extra,
+            candidatos=[", ".join(c.aliases) for c in candidatas] if len(candidatas) > 1 else [],
         )
 
     return ICP(
@@ -167,6 +192,7 @@ def build_icp(
         situacao=situacao_codigo,
         needs_confirmation=False,
         filtros_extra=filtros_extra,
+        entrada_dicionario=", ".join(entry.aliases),
     )
 
 
