@@ -86,6 +86,10 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
   - `multiunidade` / `unidades`: mais de um estabelecimento ativo, conta maior. Vale citar as unidades na abordagem.
   - `anos_de_mercado`: empresa madura ou recém-aberta (`empresa_nova`), o que muda o discurso.
 
+## Planilha para o CRM (`--formato`)
+
+Quando o usuário quiser os leads no CRM ou no Excel, rode `prospectar`/`validar-lista` com `--formato xlsx` (Excel) ou `--formato csv` (importação no HubSpot/Pipedrive; `--separador ";"` para Excel em português) e, se ele indicar, `--saida <arquivo>`. O stdout traz só o resumo com `arquivo` (caminho absoluto): diga onde o arquivo ficou e mostre o `resumo`. O mapeamento de colunas para HubSpot e Pipedrive está no README.
+
 ## Quem já está no CRM (`--excluir`)
 
 Se o usuário tiver uma lista de clientes ou leads em andamento (export do CRM, planilha), passe com `--excluir <arquivo>` em `descobrir`/`prospectar`/`validar-lista`. Aceita `.csv`, `.txt` ou `.json` do jeito que o CRM exporta: cada célula é reconhecida sozinha como CNPJ (exclui a empresa inteira, todas as filiais) ou e-mail/URL/domínio (exclui quem tem o mesmo domínio no e-mail cadastral). Diga ao usuário quantos foram `excluidos`; eles não entram em `descartados`, porque não são descarte.

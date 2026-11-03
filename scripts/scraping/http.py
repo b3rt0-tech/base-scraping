@@ -13,12 +13,13 @@ import httpx
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from scripts.basecnpj.cache import get_or_fetch
+from scripts.basecnpj.config import SKILL_ROOT
 from scripts.log import get_logger
 
 log = get_logger("scraping")
 
 USER_AGENT = "base-scraping/0.1 (+https://github.com/Mettric/base-scraping; contato B2B automatizado)"
-SCRAPING_CACHE_DIR = Path(".cache/scraping")
+SCRAPING_CACHE_DIR = SKILL_ROOT / ".cache" / "scraping"
 CONTENT_TTL_SECONDS = 7 * 24 * 3600  # 7 dias (seção 9 do ARCTETURE.md)
 MAX_PAGES_PER_DOMAIN = 5
 MIN_DELAY_SECONDS = 2.0

@@ -7,7 +7,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB_PATH = Path(".cache/pipeline.sqlite3")
+from scripts.basecnpj.config import SKILL_ROOT
+
+DEFAULT_DB_PATH = SKILL_ROOT / ".cache" / "pipeline.sqlite3"  # na skill, não no diretório de quem chama
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (

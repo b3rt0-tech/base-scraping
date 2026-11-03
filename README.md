@@ -175,9 +175,39 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--quiet` / `-q` | só avisos e erros no stderr (sem progresso) |
 | `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
 | `--excluir` | arquivo do CRM (`.csv`, `.txt` ou `.json`, sem preparo) com CNPJs e/ou e-mails/domínios de quem já é cliente ou lead em andamento. CNPJ exclui a **empresa inteira** (todas as filiais); domínio exclui quem tem o mesmo domínio no e-mail cadastral (Gmail/Hotmail são ignorados). Os excluídos não aparecem nem em `descartados`, e a descoberta repõe outros para manter os 100. A saída informa `excluidos` |
+| `--formato` / `--saida` / `--separador` | (em `prospectar` e `validar-lista`) `csv` ou `xlsx` grava a planilha (padrão `leads-<nicho>-<cidade>-loteN.<ext>`) e o stdout traz só o resumo em JSON (`arquivo`, `total`, `resumo`…). CSV em UTF-8 com BOM, separador `,` (importação de CRM) ou `;` (Excel em português) |
 | `--perfil` | `icp.yaml` com o perfil do cliente ideal (ver abaixo). Padrão: `icp.yaml` na raiz da skill, se existir |
 
 Sem `--sites-json`, `prospectar` tenta sozinho o **domínio do e-mail cadastral** quando ele é da empresa (não Gmail/Hotmail etc., não de contador) e só mantém o site se ele confirmar ser a empresa (`site_origem: email_cadastral`). Em dentistas de Campinas isso confirmou 10 sites em 100 leads sem nenhuma busca web. Para os demais, a URL candidata vem da busca web da skill (ver `SKILL.md`) via `--sites-json`, que tem prioridade.
+
+### 📤 Planilha para o CRM (`--formato csv|xlsx`)
+
+```bash
+uv run python -m scripts.pipeline_cli prospectar dentista --uf SP --municipio Campinas --formato xlsx
+```
+
+Uma linha por lead, já na ordem de trabalho (prioridade A primeiro). As colunas são sempre as mesmas, então o mapeamento no CRM é feito uma vez só:
+
+| Coluna da planilha | HubSpot (Empresa / Contato) | Pipedrive (Organização / Pessoa) |
+|---|---|---|
+| Empresa | Company name | Organization name |
+| CNPJ | propriedade customizada `cnpj` | campo customizado `CNPJ` |
+| Cidade / UF | City / State/Region | Address (cidade, estado) |
+| Decisor | Contact: First + Last name | Person name |
+| Cargo do decisor | Contact: Job title | Person: campo customizado `Cargo` |
+| WhatsApp | Contact: Mobile phone number | Person: Phone (tipo celular) |
+| E-mail | Contact: Email | Person: Email |
+| Telefone | Company: Phone number | Organization: campo `Telefone` |
+| Site | Company domain name / Website URL | Organization: campo `Site` |
+| Prioridade, Score, Veredito | propriedades customizadas (ou Lead status) | Label / campos customizados |
+| Motivos, Alertas, Abordagem, 1ª mensagem | Note (nota na empresa) | Note |
+
+Dicas:
+- No HubSpot, importe como **Empresas e Contatos** num arquivo só, associados pela coluna Empresa.
+- No Pipedrive, importe como **Organizações e Pessoas**.
+- Para abrir direto no Excel em português, use `--formato xlsx` (ou `--formato csv --separador ";"`).
+
+Contato que o pipeline marcou como de contador **não** vai para as colunas E-mail e Telefone.
 
 ### 🎯 Perfil do cliente ideal (`icp.yaml`)
 
