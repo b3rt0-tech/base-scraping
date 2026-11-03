@@ -217,10 +217,7 @@ def _ler_sites_json_ou_exit(arquivo: str | None) -> dict[str, str]:
     if not arquivo:
         return {}
     formato = 'O --sites-json deve ser um objeto {"<cnpj de 14 dígitos>": "<url http(s)>"}'
-    try:
-        dados = json.loads(Path(arquivo).read_text())
-    except (OSError, ValueError) as exc:  # ValueError cobre JSON inválido e arquivo que não é UTF-8
-        _exit_with_error("entrada_invalida", f"não foi possível ler '{arquivo}' como JSON: {exc}")
+    dados = _ler_json_ou_exit(arquivo)
     if not isinstance(dados, dict):
         _exit_with_error("entrada_invalida", f"{formato}; veio {type(dados).__name__}.")
 
@@ -428,19 +425,56 @@ def prospectar(
     _emitir(SaidaProspectar, resultado_final)
 
 
-def _ler_lista_ou_exit(arquivo: str) -> list[dict[str, Any]]:
+def _ler_json_ou_exit(arquivo: str) -> Any:
+    """Lê um JSON de entrada do usuário. Aceita BOM (JSON salvo no Windows/Excel) e devolve erro JSON,
+    nunca traceback, para arquivo ausente, fora de UTF-8 ou malformado.
+    """
     try:
-        itens = json.loads(Path(arquivo).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        _exit_with_error("entrada_invalida", f"não foi possível ler '{arquivo}' como JSON: {exc}")
-    if not isinstance(itens, list) or not all(
-        isinstance(item, dict) and (item.get("cnpj") or item.get("nome")) for item in itens
-    ):
+        return json.loads(Path(arquivo).read_text(encoding="utf-8-sig"))
+    except UnicodeDecodeError:
         _exit_with_error(
             "entrada_invalida",
-            'O arquivo deve ser uma lista de {"cnpj": ...} ou {"nome": ..., "uf"?, "municipio"?}.',
+            f"'{arquivo}' não está em UTF-8 (comum em arquivo salvo como latin-1/Windows-1252): salve como UTF-8.",
         )
-    return itens
+    except (OSError, ValueError) as exc:  # ValueError cobre JSON malformado
+        _exit_with_error("entrada_invalida", f"não foi possível ler '{arquivo}' como JSON: {exc}")
+
+
+def _validar_item_da_lista(posicao: int, item: Any) -> dict[str, Any]:
+    """Valida um item de `--arquivo` e o devolve normalizado; o erro cita a posição (1 = primeiro item)."""
+    formato = 'cada item deve ser {"cnpj": ...} ou {"nome": ..., "uf"?: ..., "municipio"?: ...}'
+
+    def recusar(motivo: str) -> NoReturn:
+        _exit_with_error("entrada_invalida", f"item {posicao} da lista: {motivo}; {formato}.")
+
+    if not isinstance(item, dict):
+        recusar(f"veio {type(item).__name__}, esperado um objeto")
+
+    cnpj, nome = item.get("cnpj"), item.get("nome")
+    if isinstance(cnpj, bool) or not isinstance(cnpj, (str, int, type(None))):
+        recusar(f"'cnpj' deve ser texto ou número, veio {type(cnpj).__name__}")
+    if nome is not None and not isinstance(nome, str):
+        recusar(f"'nome' deve ser texto, veio {type(nome).__name__}")
+    for campo in ("uf", "municipio"):
+        if item.get(campo) is not None and not isinstance(item[campo], str):
+            recusar(f"'{campo}' deve ser texto, veio {type(item[campo]).__name__}")
+
+    if isinstance(cnpj, int):
+        cnpj = str(cnpj).zfill(14)  # planilha/JSON como número perde os zeros à esquerda
+    cnpj = cnpj.strip() if isinstance(cnpj, str) else None
+    nome = nome.strip() if isinstance(nome, str) else None
+    if not cnpj and not nome:
+        recusar("sem 'cnpj' nem 'nome'")
+    return {**item, "cnpj": cnpj or None, "nome": nome or None}
+
+
+def _ler_lista_ou_exit(arquivo: str) -> list[dict[str, Any]]:
+    itens = _ler_json_ou_exit(arquivo)
+    if not isinstance(itens, list):
+        _exit_with_error(
+            "entrada_invalida", f"O arquivo deve ser uma lista (JSON array); veio {type(itens).__name__}."
+        )
+    return [_validar_item_da_lista(posicao, item) for posicao, item in enumerate(itens, start=1)]
 
 
 @app.command("validar-lista")
