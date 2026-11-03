@@ -12,6 +12,8 @@ from scripts.utils import only_digits
 from . import db as db_module
 from .icp import ICP
 
+PER_PAGE = 100  # máximo da API (confirmado: per_page maior é limitado a 100) — 1 chamada pesada em vez de ~7
+
 
 async def discover(
     icp: ICP,
@@ -19,7 +21,7 @@ async def discover(
     conn: sqlite3.Connection,
     run_id: str,
     target_leads: int = 100,
-    per_page: int = 15,
+    per_page: int = PER_PAGE,
     settings: Settings | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> list[dict[str, Any]]:
@@ -66,11 +68,17 @@ async def discover(
                 return db_module.list_leads(conn, run_id, status="descoberto")
 
             total_pages = resposta.get("total_pages", page)
-            if not items or page >= total_pages:
+            terminou = not items or page >= total_pages
+            if terminou:
                 db_module.save_checkpoint(conn, run_id, cnae, page + 1, exhausted=True)
-                break
+            else:
+                page += 1
+                db_module.save_checkpoint(conn, run_id, cnae, page)
 
-            page += 1
-            db_module.save_checkpoint(conn, run_id, cnae, page)
+            # a página acabou de encher o teto: não gastar outra chamada pesada só pra descobrir isso
+            if db_module.count_leads(conn, run_id) >= target_leads:
+                return db_module.list_leads(conn, run_id, status="descoberto")
+            if terminou:
+                break
 
     return db_module.list_leads(conn, run_id, status="descoberto")

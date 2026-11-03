@@ -134,6 +134,8 @@ async def _descobrir_ate_validar(
         "porte": porte,
         "situacao": situacao,
         "cep": cep,
+        # o checkpoint guarda "próxima página", que só vale para o mesmo tamanho de página
+        "per_page": discovery.PER_PAGE,
     }
     if matriz:
         params["matriz"] = True  # só quando usada, para não mudar o run_id de execuções antigas
