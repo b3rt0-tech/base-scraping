@@ -36,6 +36,7 @@ def build_lead_json(
     validado_em: float | None = None,
     enriquecido_em: float | None = None,
     perfil: PerfilICP | None = None,
+    origem_site: str | None = None,
 ) -> dict[str, Any]:
     """Monta o JSON final de um lead (contrato em schemas/lead.md), com
     proveniência por campo (fonte, rota/URL, timestamp). Campo sem dado
@@ -110,6 +111,9 @@ def build_lead_json(
 
         lead["site"] = enrichment.site
         proveniencia["site"] = _proveniencia("scraping", origem, enriquecido_em)
+        if origem_site:
+            lead["site_origem"] = origem_site
+            proveniencia["site_origem"] = _proveniencia("pipeline", "S4", enriquecido_em)
 
         if enrichment.emails:
             lead["emails"] = [

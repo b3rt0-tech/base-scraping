@@ -51,6 +51,7 @@
         }
       ],
       "site": "https://sorriso.com.br/",
+      "site_origem": "sites_json",
       "emails": [
         {
           "valor": "ana@sorriso.com.br",
@@ -198,6 +199,11 @@
         "site": {
           "fonte": "scraping",
           "rota_ou_url": "https://sorriso.com.br/",
+          "timestamp": 1700000000.0
+        },
+        "site_origem": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S4",
           "timestamp": 1700000000.0
         },
         "emails": {

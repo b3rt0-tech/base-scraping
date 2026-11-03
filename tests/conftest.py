@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
+from scripts import pipeline_cli
 from scripts.basecnpj import cache as basecnpj_cache
 from scripts.basecnpj import client as basecnpj_client
 from scripts.pipeline import perfil as perfil_module
@@ -118,6 +119,8 @@ def isolar_ambiente(request, monkeypatch, tmp_path):
     monkeypatch.setattr(scraping_http, "SCRAPING_CACHE_DIR", tmp_path / "cache-scraping")
     monkeypatch.delenv("BASECNPJ_BASE_URL", raising=False)
     monkeypatch.setattr(perfil_module, "PERFIL_PADRAO", tmp_path / "sem-icp.yaml")  # um icp.yaml local não vaza
+    # o domínio do e-mail da fixture (sorriso.com.br) viraria site candidato: só os testes do site automático ligam
+    monkeypatch.setattr(pipeline_cli, "SITE_AUTOMATICO", False)
 
     if request.node.get_closest_marker("integration"):
         return
