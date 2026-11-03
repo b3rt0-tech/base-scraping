@@ -669,6 +669,10 @@
           "title": "Total",
           "type": "integer"
         },
+        "lote": {
+          "title": "Lote",
+          "type": "integer"
+        },
         "descobertos": {
           "title": "Descobertos",
           "type": "integer"
@@ -699,6 +703,7 @@
       "required": [
         "icp",
         "total",
+        "lote",
         "descobertos",
         "validados",
         "esgotou_busca",
@@ -716,6 +721,10 @@
         },
         "total": {
           "title": "Total",
+          "type": "integer"
+        },
+        "lote": {
+          "title": "Lote",
           "type": "integer"
         },
         "descobertos": {
@@ -748,6 +757,7 @@
       "required": [
         "icp",
         "total",
+        "lote",
         "descobertos",
         "validados",
         "esgotou_busca",

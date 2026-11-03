@@ -45,7 +45,16 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    _migrar(conn)
     return conn
+
+
+def _migrar(conn: sqlite3.Connection) -> None:
+    """Colunas acrescentadas depois da primeira versão — bancos antigos ganham a coluna sem perder dados."""
+    colunas = {row["name"] for row in conn.execute("PRAGMA table_info(leads)")}
+    if "lote" not in colunas:
+        conn.execute("ALTER TABLE leads ADD COLUMN lote INTEGER")
+        conn.commit()
 
 
 def make_run_id(params: dict[str, Any]) -> str:
@@ -111,6 +120,7 @@ def _row_to_lead(row: sqlite3.Row) -> dict[str, Any]:
         "discovery": json.loads(row["discovery_json"]) if row["discovery_json"] else None,
         "detalhe": json.loads(row["detalhe_json"]) if row["detalhe_json"] else None,
         "discard_reason": row["discard_reason"],
+        "lote": row["lote"],
     }
 
 
@@ -155,3 +165,34 @@ def save_checkpoint(
         (run_id, cnae, next_page, int(exhausted)),
     )
     conn.commit()
+
+
+def lote_atual(conn: sqlite3.Connection, run_id: str) -> int:
+    """Último lote entregue desta consulta (0 = nenhum ainda)."""
+    row = conn.execute("SELECT MAX(lote) AS m FROM leads WHERE run_id=?", (run_id,)).fetchone()
+    return row["m"] or 0
+
+
+def count_validados_sem_lote(conn: sqlite3.Connection, run_id: str) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM leads WHERE run_id=? AND status='validado' AND lote IS NULL", (run_id,)
+    ).fetchone()
+    return row["c"]
+
+
+def atribuir_lote(conn: sqlite3.Connection, run_id: str, lote: int, limite: int) -> None:
+    """Marca até `limite` validados ainda sem lote (na ordem em que foram descobertos) com o número do lote."""
+    conn.execute(
+        """
+        UPDATE leads SET lote=? WHERE rowid IN (
+            SELECT rowid FROM leads WHERE run_id=? AND status='validado' AND lote IS NULL ORDER BY rowid LIMIT ?
+        )
+        """,
+        (lote, run_id, limite),
+    )
+    conn.commit()
+
+
+def list_lote(conn: sqlite3.Connection, run_id: str, lote: int) -> list[dict[str, Any]]:
+    rows = conn.execute("SELECT * FROM leads WHERE run_id=? AND lote=? ORDER BY rowid", (run_id, lote)).fetchall()
+    return [_row_to_lead(row) for row in rows]

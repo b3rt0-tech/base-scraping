@@ -28,12 +28,14 @@ O pipeline já está implementado e testado em `scripts/`. Não escreva Python n
 3. **Token:** `BASECNPJ_TOKEN` precisa estar em `.env` na raiz do skill (ver `.env.example`; o `.env` é lido da raiz do skill mesmo se o comando rodar de outro diretório). Se não existir, o comando responde `erro: token_ausente`: pare e peça o token ao usuário — nunca invente um. `erro: token_invalido` é outro caso (token existe, mas a API recusou).
 4. **Comando de descoberta+validação só (S0→S3), sem scraping:**
    ```
-   uv run python -m scripts.pipeline_cli descobrir "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz]
+   uv run python -m scripts.pipeline_cli descobrir "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--continuar]
    ```
 5. **Comando completo (S0→S4→S6), com score e enriquecimento:**
    ```
-   uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--sites-json <arquivo.json>]
+   uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--continuar] [--sites-json <arquivo.json>]
    ```
+   **Mais leads da mesma consulta:** quando o usuário pedir "mais", "os próximos" ou "outro lote", rode o mesmo comando com `--continuar` (lote 2, 3…; nunca repete CNPJ entregue). Sem a flag, a mesma consulta devolve o lote 1 de novo. Se vier `esgotou_busca: true`, diga que o nicho/região acabou e sugira ampliar (cidade vizinha, outro CNAE).
+
    Sem `--sites-json`, os leads saem sem enriquecimento de site/e-mail (só dado cadastral) — ainda assim é uma saída válida e completa em JSON, com score. Para enriquecer, ache as URLs candidatas via busca web (uma por lead validado, usando nome fantasia/razão social + cidade como pista) e escreva um JSON `{"<cnpj>": "<url>"}` num arquivo temporário (CNPJ com ou sem pontuação; URL começando com `http://` ou `https://`; formato inválido responde `erro: entrada_invalida`) antes de rodar `prospectar` com `--sites-json`.
    **Lista própria (S2→S3→S4→S6), sem descoberta:** quando o usuário já tem uma lista de empresas (CNPJs ou nomes), escreva um JSON `[{"cnpj": "..."}, {"nome": "...", "uf": "SP", "municipio": "Campinas"}]` num arquivo temporário e rode:
    ```
@@ -91,7 +93,7 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 `scripts/pipeline/score.py` pontua cada lead validado (30 aderência ICP + 30 qualidade de contato + 20 presença digital + 20 saúde cadastral). `scripts/pipeline/export.py` monta o JSON final com `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` por campo e aplica o teto de 100 leads (mantendo os de maior score se sobrar mais que isso).
 
 `scripts/pipeline_cli.py` expõe os dois comandos de ponta a ponta:
-- `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz]`: S0→S3, retomável via checkpoint SQLite.
+- `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--continuar]`: S0→S3, retomável via checkpoint SQLite.
 - `validar-lista --arquivo lista.json [--situacao ativa] [--sites-json arquivo.json]`: S2→S3→S4→S6 sobre uma lista de CNPJs/nomes do usuário (até 100 itens), sem CNAE.
 - `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.
 

@@ -39,8 +39,9 @@ def _paginas_avancada(chamadas) -> list[int]:
     return [int(c.url.params["page"]) for c in chamadas if c.url.params.get("route") == "avancada"]
 
 
-def _descobrir(tmp_path) -> dict:
-    resultado = runner.invoke(app, ["descobrir", "dentista", "--uf", "SP", "--db-path", str(tmp_path / "p.sqlite3")])
+def _descobrir(tmp_path, *extra: str) -> dict:
+    args = ["descobrir", "dentista", "--uf", "SP", "--db-path", str(tmp_path / "p.sqlite3"), *extra]
+    resultado = runner.invoke(app, args)
     assert resultado.exit_code == 0, resultado.stdout
     return json.loads(resultado.stdout)
 
@@ -100,12 +101,78 @@ def test_retomada_com_teto_atingido_nao_chama_a_busca(api, tmp_path, teto_pequen
     assert len(_paginas_avancada(chamadas)) == antes
 
 
-def test_retomada_nao_rebaixa_lead_ja_validado(api, tmp_path, teto_pequeno, monkeypatch):
+def test_retomada_nao_rebaixa_lead_ja_validado(api, tmp_path, teto_pequeno):
     """Ao reler a página do checkpoint, um CNPJ já validado não pode voltar a "descoberto"."""
     _api_paginada(api, [[(1, ATIVO), (2, ATIVO), (3, ATIVO)], [(4, ATIVO), (5, ATIVO)]])
     _descobrir(tmp_path)
-    monkeypatch.setattr(pipeline_cli, "TARGET_LEADS", 5)
-    saida = _descobrir(tmp_path)
+    saida = _descobrir(tmp_path, "--continuar")
 
-    assert saida["validados"] == 5
+    assert saida["lote"] == 2
+    assert [lead["cnpj"] for lead in saida["leads"]] == [_cnpj(4), _cnpj(5)]
     assert saida["descobertos"] == 5
+
+
+# --- [06] --continuar --------------------------------------------------------
+
+
+def _cnpjs(saida: dict) -> list[str]:
+    return [lead["cnpj"] for lead in saida["leads"]]
+
+
+def test_continuar_entrega_lotes_sem_repetir_cnpj(api, tmp_path, teto_pequeno):
+    _api_paginada(api, [[(i, ATIVO) for i in range(p * 3, p * 3 + 3)] for p in range(3)])
+
+    lote1 = _descobrir(tmp_path)
+    lote2 = _descobrir(tmp_path, "--continuar")
+    lote3 = _descobrir(tmp_path, "--continuar")
+
+    assert [lote1["lote"], lote2["lote"], lote3["lote"]] == [1, 2, 3]
+    todos = _cnpjs(lote1) + _cnpjs(lote2) + _cnpjs(lote3)
+    assert len(todos) == 9 and len(set(todos)) == 9
+    assert lote3["esgotou_busca"] is True
+
+
+def test_sem_continuar_repete_o_lote_1(api, tmp_path, teto_pequeno):
+    chamadas = _api_paginada(api, [[(1, ATIVO), (2, ATIVO), (3, ATIVO)], [(4, ATIVO)]])
+    lote1 = _descobrir(tmp_path)
+    _descobrir(tmp_path, "--continuar")
+    antes = len(_paginas_avancada(chamadas))
+
+    de_novo = _descobrir(tmp_path)
+
+    assert de_novo["lote"] == 1
+    assert _cnpjs(de_novo) == _cnpjs(lote1)
+    assert len(_paginas_avancada(chamadas)) == antes
+
+
+def test_continuar_com_busca_esgotada_devolve_lote_vazio(api, tmp_path, teto_pequeno):
+    _api_paginada(api, [[(1, ATIVO), (2, ATIVO)]])
+    _descobrir(tmp_path)
+    saida = _descobrir(tmp_path, "--continuar")
+
+    assert saida["lote"] == 2
+    assert saida["total"] == 0
+    assert saida["esgotou_busca"] is True
+
+
+def test_banco_antigo_sem_coluna_lote_e_migrado(tmp_path):
+    import sqlite3
+
+    from scripts.pipeline import db
+
+    caminho = tmp_path / "antigo.sqlite3"
+    antigo = sqlite3.connect(caminho)
+    antigo.executescript(
+        """
+        CREATE TABLE leads (run_id TEXT NOT NULL, cnpj TEXT NOT NULL, status TEXT NOT NULL, discovery_json TEXT,
+            detalhe_json TEXT, discard_reason TEXT, updated_at REAL NOT NULL, PRIMARY KEY (run_id, cnpj));
+        INSERT INTO leads VALUES ('r', '1', 'validado', NULL, NULL, NULL, 0);
+        """
+    )
+    antigo.commit()
+    antigo.close()
+
+    conn = db.connect(caminho)
+    assert db.lote_atual(conn, "r") == 0
+    db.atribuir_lote(conn, "r", 1, 100)
+    assert [lead["cnpj"] for lead in db.list_lote(conn, "r", 1)] == ["1"]
