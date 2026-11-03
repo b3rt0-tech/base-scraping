@@ -1,9 +1,19 @@
 ---
 name: base-scraping
-description: Captação e enriquecimento de leads B2B brasileiros, construído sobre o BaseCNPJ. Ativa quando o usuário pede prospecção de empresas por nicho/CNAE, validação cadastral de CNPJs, ou enriquecimento de contatos (site, e-mail, redes sociais) para uma lista de empresas.
+description: Captação e enriquecimento de leads B2B brasileiros, construído sobre o BaseCNPJ, com o Claude agindo como consultor de vendas (analisa ICP, produto e qualifica cada lead). Ativa quando o usuário pede prospecção de empresas por nicho/CNAE, validação cadastral de CNPJs, ou enriquecimento de contatos para uma lista de empresas. Triggers on "/new-leads", "new leads", "novos leads", "minerar leads".
 ---
 
 # base-scraping
+
+## Fluxo `/new-leads`
+
+Quando o usuário digitar `/new-leads` (ou pedir "novos leads"/"minerar leads" sem dizer nicho e produto), siga exatamente o fluxo de `commands/new-leads.md`:
+
+1. Pergunte **"1-) Qual o ICP/Nicho?"** e espere a resposta.
+2. Pergunte **"2-) Qual o produto?"** e espere a resposta.
+3. Analise como consultor (ICP/nicho, produto → perfil), minere com `prospectar`, complete os sites dos leads A/B, qualifique cada lead, escreva a 1ª mensagem dos A e entregue a lista priorizada com a planilha.
+
+Depois das duas respostas, não faça mais perguntas, exceto se estiver travado: falta UF/cidade, nicho ambíguo ou fora do dicionário, token ausente ou inválido.
 
 ## Quando ativar
 
@@ -65,9 +75,9 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 
 ### S0 — Definição do ICP
 1. Traduzir o pedido em linguagem natural para filtros estruturados: nicho → CNAE(s) (via `references/cnae.md`), cidade → município + UF, "pequenas" → porte ME/EPP, situação cadastral = ativa por padrão.
-2. Se o nicho não estiver no dicionário, propor o CNAE por raciocínio e **pedir confirmação do usuário antes de continuar**.
+2. Se o nicho não estiver no dicionário, propor o CNAE por raciocínio e **pedir confirmação do usuário antes de continuar** (é um dos poucos casos que param o fluxo).
 3. Executar `route=status` como preflight (valida token e conectividade).
-4. **Mostrar a consulta montada e a contagem estimada ao usuário, e só prosseguir com confirmação explícita.** Nunca paginar a busca avançada sem essa confirmação.
+4. **Mostrar a consulta interpretada** (nicho → entrada do dicionário → CNAEs, cidade/UF, porte, perfil) **e seguir**, sem esperar confirmação. O plano Business não tem teto de chamadas e o pipeline já limita a 100 validados por execução. Só pare se o nicho for ambíguo, estiver fora do dicionário ou faltar a região.
 
 ### S1 — Descoberta via busca avançada
 - Motor primário de descoberta (plano Business não tem teto de chamadas).
@@ -146,7 +156,7 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 
 ## Regras transversais (sempre válidas)
 
-- **Confirmação do ICP é obrigatória** antes de qualquer paginação em massa.
+- **Mostre a consulta interpretada e siga**: a confirmação só é exigida quando o nicho é ambíguo ou está fora do dicionário (o CLI já recusa sozinho nesses casos) ou quando falta a região.
 - **Erros da API**: 400 → erro nosso, não repetir; 401/403 → token inválido/expirado, abortar com mensagem clara; 404 → lead não resolvido, seguir; 429 → backoff exponencial + `Retry-After` (não deveria ocorrer no Business); 500 → retry com backoff até 3x, depois enfileirar.
 - **LinkedIn está fora do v1** — não scrapear, não contornar bloqueios.
 - **Saída sempre em JSON**, no máximo **100 leads por execução**. SQLite é só checkpoint interno, nunca formato de saída para o usuário.
