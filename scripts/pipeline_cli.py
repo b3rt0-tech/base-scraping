@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, NoReturn
 
+import httpx
 import typer
 
 from scripts.basecnpj.config import SKILL_ROOT, get_settings
@@ -17,13 +18,14 @@ from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.scraping.enrich import enrich
-from scripts.scraping.http import ScrapeSession
+from scripts.scraping.http import USER_AGENT, ScrapeSession
 from scripts.utils import only_digits
 
 app = typer.Typer(help="Pipeline do base-scraping — S0→S3 (descobrir) e S0→S4→S6 (prospectar, sem S5).")
 
 TARGET_LEADS = 100  # decisão fechada, seção 11 do ARCTETURE.md — sem override de CLI
 MAX_ITENS_LISTA = 100  # teto de itens do `validar-lista`, mesmo valor do teto de leads
+ENRIQUECIMENTO_CONCORRENCIA = 8  # leads enriquecidos ao mesmo tempo (domínios distintos; o mesmo domínio é serializado)
 MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
 
 
@@ -206,21 +208,18 @@ def _listar_descartados(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return descartados
 
 
-async def _enriquecer_e_pontuar(
-    resultados: list[ValidacaoResult],
-    sites: dict[str, str],
-) -> list[dict[str, Any]]:
-    """S4+S6: para cada resultado validado, enriquece (quando há site candidato em
-    `sites`) e pontua. Devolve os JSONs de lead, ainda sem ordenar/limitar.
-    """
-    session = ScrapeSession()
-    leads_json: list[dict[str, Any]] = []
-    for resultado in resultados:
-        enrichment = None
-        candidate_url = sites.get(resultado.cnpj)
-        if candidate_url:
-            detalhe = resultado.detalhe
-            estab = detalhe.estabelecimento_matriz if detalhe else None
+async def _enriquecer_um(
+    resultado: ValidacaoResult,
+    candidate_url: str | None,
+    session: ScrapeSession,
+    client: httpx.AsyncClient,
+    semaforo: asyncio.Semaphore,
+) -> dict[str, Any]:
+    enrichment = None
+    if candidate_url:
+        detalhe = resultado.detalhe
+        estab = detalhe.estabelecimento_matriz if detalhe else None
+        async with semaforo:
             enrichment = await enrich(
                 candidate_url,
                 session,
@@ -229,11 +228,38 @@ async def _enriquecer_e_pontuar(
                 nome_fantasia=estab.nome_fantasia if estab else None,
                 telefone_cadastral=detalhe.telefone_principal() if detalhe else None,
                 email_cadastral=estab.email if estab else None,
+                client=client,
             )
 
-        score = compute_score(resultado, enrichment)
-        leads_json.append(build_lead_json(resultado, score, enrichment))
-    return leads_json
+    score = compute_score(resultado, enrichment)
+    return build_lead_json(resultado, score, enrichment)
+
+
+async def _enriquecer_e_pontuar(
+    resultados: list[ValidacaoResult],
+    sites: dict[str, str],
+    *,
+    concorrencia: int = ENRIQUECIMENTO_CONCORRENCIA,
+) -> list[dict[str, Any]]:
+    """S4+S6: para cada resultado validado, enriquece (quando há site candidato em
+    `sites`) e pontua. Devolve os JSONs de lead, na mesma ordem de `resultados`, ainda
+    sem ordenar/limitar.
+
+    Até `concorrencia` leads rodam ao mesmo tempo, com um único `httpx.AsyncClient`
+    compartilhado. O rate limit continua valendo: o `ScrapeSession` serializa as
+    requisições de cada domínio (lock + delay de 2-5s) e o teto de páginas por domínio.
+    """
+    session = ScrapeSession()
+    semaforo = asyncio.Semaphore(concorrencia)
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
+        return list(
+            await asyncio.gather(
+                *(
+                    _enriquecer_um(resultado, sites.get(resultado.cnpj), session, client, semaforo)
+                    for resultado in resultados
+                )
+            )
+        )
 
 
 @app.command()
