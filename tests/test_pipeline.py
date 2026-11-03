@@ -45,6 +45,48 @@ def test_resolve_nicho(nicho, cnaes):
     assert entrada.cnaes == cnaes
 
 
+def test_todo_alias_do_dicionario_resolve_para_a_propria_entrada():
+    dicionario = icp.load_cnae_dictionary(CNAE_DICT_PATH)
+    for entrada in dicionario:
+        for alias in entrada.aliases:
+            assert icp.buscar_nichos(alias, dicionario) == [entrada], alias
+
+
+@pytest.mark.parametrize(
+    "nicho, cnaes",
+    [
+        ("OTICA", ["4774100"]),  # sem acento e em maiúsculas
+        ("clinica odontologica", ["8630504"]),
+        ("dentista em Campinas", ["8630504"]),  # alias contido no pedido, conectivo ignorado
+        ("pet", ["4789004", "9609208"]),  # palavra inteira de "pet shop"
+        ("salao de beleza", ["96025"]),
+    ],
+)
+def test_resolve_nicho_por_palavra_inteira(nicho, cnaes):
+    entrada = icp.resolve_nicho(nicho, icp.load_cnae_dictionary(CNAE_DICT_PATH))
+    assert entrada is not None
+    assert entrada.cnaes == cnaes
+
+
+@pytest.mark.parametrize("nicho", ["carpete", "ent", "de", "", "fábrica de foguetes"])
+def test_resolve_nicho_nao_casa_por_pedaco_de_palavra(nicho):
+    assert icp.resolve_nicho(nicho, icp.load_cnae_dictionary(CNAE_DICT_PATH)) is None
+
+
+def test_nicho_ambiguo_pede_confirmacao_e_lista_candidatos():
+    resultado = _icp(nicho="loja")
+    assert resultado.needs_confirmation
+    assert resultado.cnaes == []
+    assert resultado.candidatos == ["loja de roupas, boutique", "ótica, ótica de óculos, loja de óculos"]
+    assert icp.resolve_nicho("loja", icp.load_cnae_dictionary(CNAE_DICT_PATH)) is None
+
+
+def test_nicho_resolvido_informa_a_entrada_usada():
+    resultado = _icp(nicho="dentista")
+    assert resultado.entrada_dicionario == "dentista, clínica odontológica"
+    assert resultado.candidatos == []
+
+
 def test_build_icp_traduz_codigos_e_filtros_extra():
     resultado = _icp(nicho="dentista", uf="SP", municipio="Campinas", porte="ME", cep="0507", matriz=True)
     assert resultado.situacao == "02"
