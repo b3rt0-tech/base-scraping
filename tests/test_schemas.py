@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from scripts.pipeline import export as export_module
+from scripts.pipeline.explicacao import resumo
 from scripts.pipeline.schemas import Erro, Lead, SaidaValidarLista, gerar_json_schema
 from scripts.pipeline_cli import app
 
@@ -16,6 +17,8 @@ SCHEMA_VERSIONADO = Path(__file__).resolve().parents[1] / "schemas" / "lead.sche
 LEAD_MINIMO = {
     "cnpj": "12345678000195",
     "score": 10.0,
+    "prioridade": "C",
+    "canal_direto": False,
     "score_breakdown": {
         "aderencia_icp": 1.0,
         "qualidade_contato": 2.0,
@@ -34,11 +37,13 @@ def test_json_schema_versionado_esta_em_sincronia_com_os_modelos():
     )
 
 
-def test_lead_so_exige_cnpj_score_breakdown_e_proveniencia():
+def test_lead_so_exige_cnpj_score_prioridade_canal_e_proveniencia():
     assert set(gerar_json_schema()["$defs"]["Lead"]["required"]) == {
         "cnpj",
         "score",
         "score_breakdown",
+        "prioridade",
+        "canal_direto",
         "proveniencia",
     }
     Lead.model_validate(LEAD_MINIMO)
@@ -71,6 +76,7 @@ def test_nao_resolvido_aceita_cnpj_ou_nome():
             "leads": [],
             "descartados": [],
             "nao_resolvidos": [{"cnpj": "123", "motivo": "x"}, {"nome": "Fulano", "motivo": "y"}],
+            "resumo": resumo([]),
         }
     )
     assert saida.nao_resolvidos[1].cnpj is None

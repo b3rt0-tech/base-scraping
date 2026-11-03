@@ -21,12 +21,12 @@ def _lead(cnpj: str, email: str | None, telefone: tuple[str, str] | None = None)
 @pytest.mark.parametrize(
     "email",
     [
-        "contato@bonfimcontabil.com.br",
-        "dearo.contabil@gmail.com",
-        "meucnpj@contabilizei.com.br",
-        "henglercontabilidade@gmail.com",
-        "cristiano@excelenciacontabil.cnt.br",
-        "societario@contmaisassessoria.com.br",
+        "contato@silvacontabil.com.br",
+        "fulano.contabil@gmail.com",
+        "meucnpj@contabilonline.com.br",
+        "beltranocontabilidade@gmail.com",
+        "joao@escritorioexemplo.cnt.br",
+        "societario@exemploassessoria.com.br",
         "JOAO.CONTADOR@HOTMAIL.COM",
     ],
 )
@@ -37,9 +37,9 @@ def test_email_com_palavra_contabil(email):
 @pytest.mark.parametrize(
     "email",
     [
-        "contato@odontoclinic.com.br",
-        "aaodontologiaconsultorio98365@gmail.com",  # "consultorio" não é contabilidade
-        "daisy@planodconsultoria.com.br",
+        "contato@redeodonto.com.br",
+        "odontologiaconsultorio123@gmail.com",  # "consultorio" não é contabilidade
+        "maria@exemploconsultoria.com.br",
         "maria@gmail.com",
         "",
         None,
@@ -58,14 +58,14 @@ def test_marca_dominio_contabil_sozinho():
 
 
 def test_email_generico_repetido_entre_empresas_diferentes():
-    leads = [_lead("11111111000101", "andreia@terra.com.br"), _lead("22222222000102", "andreia@terra.com.br")]
+    leads = [_lead("11111111000101", "fulana@terra.com.br"), _lead("22222222000102", "fulana@terra.com.br")]
     assert marcar_contadores(leads) == 2
 
 
 def test_telefone_repetido_entre_empresas_diferentes():
     leads = [
-        _lead("11111111000101", "a@clinica1.com.br", ("19", "33427000")),
-        _lead("22222222000102", "b@clinica2.com.br", ("19", "33427000")),
+        _lead("11111111000101", "a@clinica1.com.br", ("19", "33330000")),
+        _lead("22222222000102", "b@clinica2.com.br", ("19", "33330000")),
         _lead("33333333000103", "c@clinica3.com.br", ("19", "99999999")),
     ]
     assert marcar_contadores(leads) == 2
@@ -79,8 +79,8 @@ def test_filiais_da_mesma_raiz_nao_contam_como_repeticao():
 
 def test_dominio_proprio_repetido_e_rede_nao_contador():
     leads = [
-        _lead("11111111000101", "loja@odontoclinic.com.br", ("19", "33427000")),
-        _lead("22222222000102", "loja@odontoclinic.com.br", ("19", "33427000")),
+        _lead("11111111000101", "loja@redeodonto.com.br", ("19", "33330000")),
+        _lead("22222222000102", "loja@redeodonto.com.br", ("19", "33330000")),
     ]
     assert marcar_contadores(leads) == 0
 

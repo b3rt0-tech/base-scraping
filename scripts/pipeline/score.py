@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from scripts.pipeline.perfil import PerfilICP, fit
+from scripts.pipeline.perfil import PerfilICP, descrever_criterios
 from scripts.pipeline.validate import ValidacaoResult
 from scripts.scraping.enrich import EnrichmentResult
 
@@ -22,6 +22,17 @@ _EMAIL_NIVEL_PONTOS = {
     "invalido": 0,
 }
 
+_EMAIL_DESCRICAO = {
+    "maxima": "e-mail do site confere com o cadastral",
+    "alta_nominal": "e-mail nominal publicado no site oficial",
+    "alta": "e-mail publicado no site oficial",
+    "boa": "e-mail de domínio próprio com MX válido",
+    "media": "e-mail de domínio próprio",
+    "baixa": "e-mail de provedor genérico",
+}
+
+Item = tuple[str, float]  # (motivo em linguagem de vendas, pontos)
+
 
 @dataclass
 class ScoreBreakdown:
@@ -30,6 +41,8 @@ class ScoreBreakdown:
     presenca_digital: float
     saude_cadastral: float
     fit: float | None = None  # só com perfil (`icp.yaml`) que dá peso ao fit
+    # de onde veio cada ponto, por dimensão — a soma de cada lista é o valor da dimensão
+    itens: dict[str, list[Item]] = field(default_factory=dict, compare=False)
 
     @property
     def total(self) -> float:
@@ -48,67 +61,84 @@ class ScoreBreakdown:
         return {**dimensoes, "total": self.total}
 
 
-def _score_aderencia_icp(validacao: ValidacaoResult) -> float:
+def _itens_aderencia_icp(validacao: ValidacaoResult) -> list[Item]:
     """CNAE principal vale o peso cheio; só como secundário rebaixa (seção 3.3 e
     S3 do ARCTETURE.md dizem "mantém, rebaixa score" — nunca zera)."""
-    if validacao.cnae_match == "principal":
-        return float(PESO_ADERENCIA_ICP)
     if validacao.cnae_match == "secundario":
-        return round(PESO_ADERENCIA_ICP * 0.6, 2)
-    return float(PESO_ADERENCIA_ICP)  # ICP sem filtro de CNAE — nada a penalizar aqui
+        return [("o nicho é atividade secundária no CNPJ", round(PESO_ADERENCIA_ICP * 0.6, 2))]
+    if validacao.cnae_match == "principal":
+        return [("o nicho é a atividade principal (CNAE principal)", float(PESO_ADERENCIA_ICP))]
+    return [("lista própria, sem filtro de nicho", float(PESO_ADERENCIA_ICP))]
 
 
-def _score_qualidade_contato(validacao: ValidacaoResult, enrichment: EnrichmentResult | None) -> float:
+def _itens_qualidade_contato(validacao: ValidacaoResult, enrichment: EnrichmentResult | None) -> list[Item]:
+    itens: list[Item] = []
     pontos_email = 0.0
     if enrichment and enrichment.emails:
-        pontos_email = max(_EMAIL_NIVEL_PONTOS.get(e.confianca, 0) for e in enrichment.emails)
+        melhor = max(enrichment.emails, key=lambda e: _EMAIL_NIVEL_PONTOS.get(e.confianca, 0))
+        pontos_email = float(_EMAIL_NIVEL_PONTOS.get(melhor.confianca, 0))
+        if pontos_email:
+            itens.append((_EMAIL_DESCRICAO.get(melhor.confianca, "e-mail no site"), pontos_email))
 
-    pontos_telefone_whatsapp = 0.0
     if enrichment:
         if enrichment.telefones:
-            pontos_telefone_whatsapp += 4
+            itens.append(("telefone publicado no site", 4.0))
         if enrichment.whatsapp:
-            pontos_telefone_whatsapp += 4
+            itens.append(("WhatsApp publicado no site", 4.0))
 
     # sem nenhum e-mail vindo do scraping, o contato cadastral (S3) ainda conta —
     # "ganho direto: contato antes de qualquer scraping" (seção 5 do ARCTETURE.md)
-    pontos_cadastral_bonus = 0.0
     # (exceto se for de contador: contato que não chega ao decisor não merece o bônus)
     cadastral_util = "contato_cadastral_disponivel" in validacao.flags and "contato_de_contador" not in validacao.flags
     if pontos_email == 0 and cadastral_util:
-        pontos_cadastral_bonus = 8.0
+        itens.append(("e-mail/telefone no cadastro da Receita", 8.0))
 
     # celular cadastral (provável WhatsApp, não repetido entre empresas): canal de maior resposta em PME
-    pontos_whatsapp_cadastral = 0.0
     if "whatsapp_provavel" in validacao.flags and not (enrichment and enrichment.whatsapp):
-        pontos_whatsapp_cadastral = 6.0
-
-    total = pontos_email + pontos_telefone_whatsapp + pontos_cadastral_bonus + pontos_whatsapp_cadastral
-    return min(float(PESO_QUALIDADE_CONTATO), total)
+        itens.append(("celular no cadastro (provável WhatsApp)", 6.0))
+    return itens
 
 
-def _score_presenca_digital(enrichment: EnrichmentResult | None) -> float:
+def _itens_presenca_digital(enrichment: EnrichmentResult | None) -> list[Item]:
     if enrichment is None or not enrichment.site_matched:
-        return 0.0
-    pontos = 12.0
+        return []
+    itens: list[Item] = [("site oficial confirmado (CNPJ/nome/telefone na página)", 12.0)]
     if enrichment.redes_sociais:
-        pontos += min(6.0, 2.0 * len(enrichment.redes_sociais))
+        redes = sorted(enrichment.redes_sociais)
+        itens.append((f"redes sociais: {', '.join(redes)}", min(6.0, 2.0 * len(redes))))
     if enrichment.context and (enrichment.context.ecommerce or enrichment.context.tecnologias):
-        pontos += 2.0
-    return min(float(PESO_PRESENCA_DIGITAL), pontos)
+        sinais = (["e-commerce"] if enrichment.context.ecommerce else []) + enrichment.context.tecnologias
+        itens.append((f"site com {', '.join(sinais)}", 2.0))
+    return itens
 
 
-def _score_saude_cadastral(validacao: ValidacaoResult) -> float:
+def _itens_saude_cadastral(validacao: ValidacaoResult) -> list[Item]:
     # "situação ativa" já é pré-requisito pra um lead chegar como validado (S3) —
     # o pontos-base aqui reflete isso; o resto diferencia maturidade/capital.
-    pontos = 10.0
+    itens: list[Item] = [("CNPJ ativo na Receita", 10.0)]
     if "empresa_nova" not in validacao.flags:
-        pontos += 5.0
+        itens.append(("empresa com mais de 6 meses", 5.0))
     detalhe = validacao.detalhe
     capital = getattr(detalhe, "capital_social", None) if detalhe else None
     if capital and capital > 0:
-        pontos += 5.0
-    return min(float(PESO_SAUDE_CADASTRAL), pontos)
+        itens.append(("capital social declarado", 5.0))
+    return itens
+
+
+def _limitar(itens: list[Item], teto: float) -> list[Item]:
+    """Soma dos itens não passa do peso da dimensão; o excedente vira um item negativo explícito."""
+    soma = sum(p for _, p in itens)
+    if soma > teto:
+        return [*itens, (f"limitado ao teto da dimensão ({teto:g})", teto - soma)]
+    return itens
+
+
+def _escalar(itens: list[Item], fator: float) -> list[Item]:
+    return [(motivo, round(pontos * fator, 2)) for motivo, pontos in itens]
+
+
+def _soma(itens: list[Item]) -> float:
+    return round(sum(p for _, p in itens), 2)
 
 
 def compute_score(
@@ -120,22 +150,36 @@ def compute_score(
     contato, 20 presença digital, 20 saúde cadastral. `enrichment` pode ser None
     (lead sem scraping bem-sucedido continua pontuável, só com menos campos —
     premissa central do ARCTETURE.md).
-    """
-    base = ScoreBreakdown(
-        aderencia_icp=_score_aderencia_icp(validacao),
-        qualidade_contato=_score_qualidade_contato(validacao, enrichment),
-        presenca_digital=_score_presenca_digital(enrichment),
-        saude_cadastral=_score_saude_cadastral(validacao),
-    )
-    if perfil is None:
-        return base
 
-    # com perfil: cada dimensão é reescalada para o peso dele (os pesos padrão dão fator 1) e o fit entra
-    pesos = perfil.pesos
+    Com perfil (`icp.yaml`), cada dimensão é reescalada para o peso dele (os pesos padrão dão fator 1) e
+    o `fit` entra como quinta dimensão. Toda dimensão guarda em `itens` de onde veio cada ponto.
+    """
+    itens = {
+        "aderencia_icp": _limitar(_itens_aderencia_icp(validacao), PESO_ADERENCIA_ICP),
+        "qualidade_contato": _limitar(_itens_qualidade_contato(validacao, enrichment), PESO_QUALIDADE_CONTATO),
+        "presenca_digital": _limitar(_itens_presenca_digital(enrichment), PESO_PRESENCA_DIGITAL),
+        "saude_cadastral": _limitar(_itens_saude_cadastral(validacao), PESO_SAUDE_CADASTRAL),
+    }
+    fit: float | None = None
+    if perfil is not None:
+        pesos = perfil.pesos
+        itens["aderencia_icp"] = _escalar(itens["aderencia_icp"], pesos.aderencia_icp / PESO_ADERENCIA_ICP)
+        itens["qualidade_contato"] = _escalar(
+            itens["qualidade_contato"], pesos.qualidade_contato / PESO_QUALIDADE_CONTATO
+        )
+        itens["presenca_digital"] = _escalar(itens["presenca_digital"], pesos.presenca_digital / PESO_PRESENCA_DIGITAL)
+        itens["saude_cadastral"] = _escalar(itens["saude_cadastral"], pesos.saude_cadastral / PESO_SAUDE_CADASTRAL)
+        if pesos.fit > 0:
+            criterios = descrever_criterios(validacao, enrichment, perfil)
+            por_criterio = pesos.fit / len(criterios)
+            itens["fit"] = [(texto, round(encaixe * por_criterio, 2)) for texto, encaixe in criterios]
+            fit = _soma(itens["fit"])
+
     return ScoreBreakdown(
-        aderencia_icp=round(base.aderencia_icp * pesos.aderencia_icp / PESO_ADERENCIA_ICP, 2),
-        qualidade_contato=round(base.qualidade_contato * pesos.qualidade_contato / PESO_QUALIDADE_CONTATO, 2),
-        presenca_digital=round(base.presenca_digital * pesos.presenca_digital / PESO_PRESENCA_DIGITAL, 2),
-        saude_cadastral=round(base.saude_cadastral * pesos.saude_cadastral / PESO_SAUDE_CADASTRAL, 2),
-        fit=round(fit(validacao, enrichment, perfil) * pesos.fit, 2) if pesos.fit > 0 else None,
+        aderencia_icp=_soma(itens["aderencia_icp"]),
+        qualidade_contato=_soma(itens["qualidade_contato"]),
+        presenca_digital=_soma(itens["presenca_digital"]),
+        saude_cadastral=_soma(itens["saude_cadastral"]),
+        fit=fit,
+        itens=itens,
     )
