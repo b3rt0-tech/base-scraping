@@ -68,7 +68,9 @@ def _score_qualidade_contato(validacao: ValidacaoResult, enrichment: EnrichmentR
     # sem nenhum e-mail vindo do scraping, o contato cadastral (S3) ainda conta —
     # "ganho direto: contato antes de qualquer scraping" (seção 5 do ARCTETURE.md)
     pontos_cadastral_bonus = 0.0
-    if pontos_email == 0 and "contato_cadastral_disponivel" in validacao.flags:
+    # (exceto se for de contador: contato que não chega ao decisor não merece o bônus)
+    cadastral_util = "contato_cadastral_disponivel" in validacao.flags and "contato_de_contador" not in validacao.flags
+    if pontos_email == 0 and cadastral_util:
         pontos_cadastral_bonus = 8.0
 
     total = pontos_email + pontos_telefone_whatsapp + pontos_cadastral_bonus

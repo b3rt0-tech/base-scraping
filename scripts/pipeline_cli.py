@@ -16,6 +16,7 @@ from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
+from scripts.pipeline.contador import marcar_contadores
 from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
@@ -414,6 +415,7 @@ def prospectar(
                 continue  # ICP mudou entre execuções — não deveria acontecer, mas não quebra
             resultados.append(resultado)
 
+        marcar_contadores(resultados)
         leads_json = await _enriquecer_e_pontuar(resultados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["icp"] = _icp_resumo(icp)
@@ -545,6 +547,7 @@ def validar_lista(
                 descartados.append({"cnpj": cnpj, "motivo": resultado.discard_reason})
             log.info("S3 %d/%d %s → %s", posicao, total_itens, cnpj, resultado.status)
 
+        marcar_contadores(validados)
         leads_json = await _enriquecer_e_pontuar(validados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = descartados
