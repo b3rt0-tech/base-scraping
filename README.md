@@ -139,6 +139,29 @@ Claude Code carrega skills a partir de um arquivo `SKILL.md` colocado numa pasta
 
 > ⚠️ **Só dizer "instala essa skill" pro Claude Code, sem mais contexto, não é confiável.** Ou você segue o passo a passo acima manualmente, ou pede explicitamente pra ele rodar os comandos (ele tem acesso a bash, então consegue clonar/copiar/`uv sync` se instruído). É uma escolha de design: esta é uma "skill simples" (clonar + copiar pasta), sem manifesto de plugin/marketplace.
 
+### ⚡ `/new-leads` — prospecção guiada
+
+Instale a skill e o comando com links simbólicos (o comando lê a skill em `~/.claude/skills/base-scraping`):
+
+```bash
+ln -s "$(pwd)" ~/.claude/skills/base-scraping
+mkdir -p ~/.claude/commands && ln -s "$(pwd)/commands/new-leads.md" ~/.claude/commands/new-leads.md
+```
+
+Abra uma **sessão nova** do Claude Code e digite `/new-leads`. Ele pergunta, nesta ordem:
+
+1. **1-) Qual o ICP/Nicho?** (ex.: "clínicas odontológicas em Campinas")
+2. **2-) Qual o produto?** (ex.: "software de agenda e prontuário, R$ 300/mês")
+
+A partir daí, o Claude age como **consultor de vendas** (`references/consultoria.md`):
+- analisa o ICP e o produto e monta o perfil
+- minera os leads e completa os sites dos melhores
+- dá o veredito de cada lead (válido, talvez, descartar), com motivo e abordagem
+- escreve a 1ª mensagem dos leads A
+- entrega a lista priorizada e a planilha
+
+Ele só volta a perguntar se faltar a cidade/UF, se o nicho for ambíguo ou se o token não estiver configurado. Mesmo sem o arquivo de comando, escrever `/new-leads` ativa o fluxo pela skill.
+
 ### 💻 Opção B — CLI direto
 
 Três comandos, todos sempre devolvendo **JSON** no stdout:
