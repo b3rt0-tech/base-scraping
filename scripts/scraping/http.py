@@ -93,19 +93,23 @@ async def _get_robots(
 ) -> urllib.robotparser.RobotFileParser:
     if domain in session.robots_cache:
         return session.robots_cache[domain]
-    rp = urllib.robotparser.RobotFileParser()
-    try:
-        response = await client.get(
-            f"https://{domain}/robots.txt", timeout=10.0, headers={"User-Agent": USER_AGENT}
-        )
-        if response.status_code < 400:
-            rp.parse(response.text.splitlines())
-        else:
-            rp.parse([])  # sem robots.txt (404 etc.) — assume permitido
-    except httpx.HTTPError:
-        rp.parse([])
-    session.robots_cache[domain] = rp
-    return rp
+    # sob o lock do domínio: com leads em paralelo, o robots.txt também respeita "1 requisição por domínio"
+    async with session.lock_for(domain):
+        if domain in session.robots_cache:  # outra tarefa buscou enquanto esperávamos o lock
+            return session.robots_cache[domain]
+        rp = urllib.robotparser.RobotFileParser()
+        try:
+            response = await client.get(
+                f"https://{domain}/robots.txt", timeout=10.0, headers={"User-Agent": USER_AGENT}
+            )
+            if response.status_code < 400:
+                rp.parse(response.text.splitlines())
+            else:
+                rp.parse([])  # sem robots.txt (404 etc.) — assume permitido
+        except httpx.HTTPError:
+            rp.parse([])
+        session.robots_cache[domain] = rp
+        return rp
 
 
 async def _respect_domain_delay(
@@ -158,6 +162,9 @@ async def fetch(
 
         async def _tentativa() -> dict[str, Any]:
             async with session.lock_for(domain):
+                # conferir de novo já com o lock: tarefas paralelas do mesmo domínio podem ter gasto o teto
+                if session.pages_fetched(domain) >= max_pages_per_domain:
+                    raise PageBudgetExceeded(f"teto de {max_pages_per_domain} páginas por domínio atingido: {domain}")
                 await _respect_domain_delay(domain, session, effective_min, effective_max)
                 response = await http_client.get(
                     url, timeout=15.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True
