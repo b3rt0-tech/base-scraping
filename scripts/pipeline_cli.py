@@ -36,6 +36,9 @@ ENRIQUECIMENTO_CONCORRENCIA = 8  # leads enriquecidos ao mesmo tempo (domínios 
 MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
 
 VerboseOpt = Annotated[bool, typer.Option("--verbose", "-v", help="Detalhe de cada lead no stderr.")]
+ContinuarOpt = Annotated[
+    bool, typer.Option("--continuar", help="Entrega os próximos 100 validados da mesma consulta (lote seguinte).")
+]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
 
@@ -151,9 +154,11 @@ async def _descobrir_ate_validar(
     cep: str | None,
     db_path: str | None,
     matriz: bool = False,
+    continuar: bool = False,
 ) -> tuple[Any, str, list[dict[str, Any]], dict[str, Any]]:
     """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads ainda não processados.
-    Devolve (conn, run_id, até 100 validados, contagens `descobertos`/`validados`/`esgotou_busca`).
+    Devolve (conn, run_id, validados do lote, `lote`/`descobertos`/`validados`/`esgotou_busca`).
+    Sem `continuar`, sempre o lote 1; com `continuar`, os próximos até 100 validados nunca entregues.
     """
     await _exigir_preflight()
     log.info("S0 preflight ok — nicho '%s', CNAEs %s", icp.nicho, ", ".join(icp.cnaes))
@@ -176,32 +181,42 @@ async def _descobrir_ate_validar(
 
     await _validar_pendentes(conn, run_id, icp)  # retomada de execução interrompida no meio da validação
 
-    # o teto de 100 vale para leads **validados**: descobre aos poucos (só o que falta) e valida a cada
-    # rodada, até 100 validados, busca esgotada ou o teto de segurança de descobertos
-    while True:
-        validados_ate_agora = db_module.count_leads(conn, run_id, status="validado")
-        descobertos_ate_agora = db_module.count_leads(conn, run_id)
-        if validados_ate_agora >= TARGET_LEADS or descobertos_ate_agora >= discovery.MAX_DESCOBERTOS:
-            break
-        if discovery.busca_esgotada(icp, conn=conn, run_id=run_id):
-            break
-        alvo = min(discovery.MAX_DESCOBERTOS, descobertos_ate_agora + TARGET_LEADS - validados_ate_agora)
-        await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
-        await _validar_pendentes(conn, run_id, icp)
+    lote_entregue = db_module.lote_atual(conn, run_id)
+    if lote_entregue and not continuar:
+        # repetir a mesma consulta devolve o mesmo lote 1 (idempotente, sem chamada nova à busca)
+        lote = 1
+    else:
+        lote = lote_entregue + 1
+        # o teto de 100 vale para leads **validados** ainda não entregues: descobre aos poucos (só o que
+        # falta) e valida a cada rodada, até 100, busca esgotada ou o teto de segurança de descobertos
+        teto_descobertos = db_module.count_leads(conn, run_id) + discovery.MAX_DESCOBERTOS
+        while True:
+            faltam = TARGET_LEADS - db_module.count_validados_sem_lote(conn, run_id)
+            descobertos_ate_agora = db_module.count_leads(conn, run_id)
+            if faltam <= 0 or descobertos_ate_agora >= teto_descobertos:
+                break
+            if discovery.busca_esgotada(icp, conn=conn, run_id=run_id):
+                break
+            alvo = min(teto_descobertos, descobertos_ate_agora + faltam)
+            await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
+            await _validar_pendentes(conn, run_id, icp)
+        db_module.atribuir_lote(conn, run_id, lote, TARGET_LEADS)
 
-    validados = db_module.list_leads(conn, run_id, status="validado")
+    validados = db_module.list_lote(conn, run_id, lote)
     info = {
+        "lote": lote,
         "descobertos": db_module.count_leads(conn, run_id),
         "validados": len(validados),
         "esgotou_busca": discovery.busca_esgotada(icp, conn=conn, run_id=run_id),
     }
     log.info(
-        "S3 pronto: %d validado(s) de %d descoberto(s)%s",
+        "S3 pronto: lote %d com %d validado(s); %d descoberto(s) na consulta%s",
+        lote,
         info["validados"],
         info["descobertos"],
         " (busca esgotada)" if info["esgotou_busca"] else "",
     )
-    return conn, run_id, validados[:TARGET_LEADS], info
+    return conn, run_id, validados, info
 
 
 async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP) -> None:
@@ -352,6 +367,7 @@ def descobrir(
     cep: str | None = None,
     matriz: bool = False,
     db_path: str | None = None,
+    continuar: ContinuarOpt = False,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -378,6 +394,7 @@ def descobrir(
             cep=cep,
             db_path=db_path,
             matriz=matriz,
+            continuar=continuar,
         )
         leads = [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
         return {
@@ -403,6 +420,7 @@ def prospectar(
     cep: str | None = None,
     matriz: bool = False,
     db_path: str | None = None,
+    continuar: ContinuarOpt = False,
     sites_json: str | None = None,
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
@@ -431,6 +449,7 @@ def prospectar(
             cep=cep,
             db_path=db_path,
             matriz=matriz,
+            continuar=continuar,
         )
 
         resultados: list[ValidacaoResult] = []

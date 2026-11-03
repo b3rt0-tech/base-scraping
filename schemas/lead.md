@@ -49,4 +49,4 @@ Um teste garante que o arquivo versionado está em sincronia com os modelos, e `
 
 ## Saída
 
-**Sempre JSON**, com proveniência por campo (fonte, URL/rota, timestamp), no máximo **100 leads validados por execução** (`descobertos`, `validados` e `esgotou_busca` dizem quanto foi buscado e se o nicho acabou) — decisão fechada, seção 11 do `ARCTETURE.md`. SQLite é usado só como storage interno de checkpoint do pipeline (retomar de onde parou), nunca como formato de saída para o usuário.
+**Sempre JSON**, com proveniência por campo (fonte, URL/rota, timestamp), no máximo **100 leads validados por execução** (`lote` diz qual lote é: 1 por padrão, N+1 com `--continuar`; `descobertos`, `validados` e `esgotou_busca` dizem quanto foi buscado e se o nicho acabou) — decisão fechada, seção 11 do `ARCTETURE.md`. SQLite é usado só como storage interno de checkpoint do pipeline (retomar de onde parou), nunca como formato de saída para o usuário.
