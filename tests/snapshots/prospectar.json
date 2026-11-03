@@ -7,6 +7,9 @@
     ]
   },
   "total": 1,
+  "descobertos": 2,
+  "validados": 1,
+  "esgotou_busca": true,
   "leads": [
     {
       "cnpj": "12345678000195",

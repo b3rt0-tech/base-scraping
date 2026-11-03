@@ -151,9 +151,9 @@ async def _descobrir_ate_validar(
     cep: str | None,
     db_path: str | None,
     matriz: bool = False,
-) -> tuple[Any, str, list[dict[str, Any]]]:
-    """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads
-    ainda não processados. Devolve (conn, run_id, leads_validados_desta_execucao_em_diante).
+) -> tuple[Any, str, list[dict[str, Any]], dict[str, Any]]:
+    """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads ainda não processados.
+    Devolve (conn, run_id, até 100 validados, contagens `descobertos`/`validados`/`esgotou_busca`).
     """
     await _exigir_preflight()
     log.info("S0 preflight ok — nicho '%s', CNAEs %s", icp.nicho, ", ".join(icp.cnaes))
@@ -174,12 +174,42 @@ async def _descobrir_ate_validar(
     run_id = db_module.make_run_id(params)
     db_module.ensure_run(conn, run_id, params, TARGET_LEADS)
 
-    descobertos = await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=TARGET_LEADS)
+    await _validar_pendentes(conn, run_id, icp)  # retomada de execução interrompida no meio da validação
 
-    # só os que ainda estão "descoberto" precisam passar pelo S3 nesta chamada —
-    # leads já validados/descartados em execuções anteriores (retomada) são pulados
+    # o teto de 100 vale para leads **validados**: descobre aos poucos (só o que falta) e valida a cada
+    # rodada, até 100 validados, busca esgotada ou o teto de segurança de descobertos
+    while True:
+        validados_ate_agora = db_module.count_leads(conn, run_id, status="validado")
+        descobertos_ate_agora = db_module.count_leads(conn, run_id)
+        if validados_ate_agora >= TARGET_LEADS or descobertos_ate_agora >= discovery.MAX_DESCOBERTOS:
+            break
+        if discovery.busca_esgotada(icp, conn=conn, run_id=run_id):
+            break
+        alvo = min(discovery.MAX_DESCOBERTOS, descobertos_ate_agora + TARGET_LEADS - validados_ate_agora)
+        await discovery.discover(icp, conn=conn, run_id=run_id, target_leads=alvo)
+        await _validar_pendentes(conn, run_id, icp)
+
+    validados = db_module.list_leads(conn, run_id, status="validado")
+    info = {
+        "descobertos": db_module.count_leads(conn, run_id),
+        "validados": len(validados),
+        "esgotou_busca": discovery.busca_esgotada(icp, conn=conn, run_id=run_id),
+    }
+    log.info(
+        "S3 pronto: %d validado(s) de %d descoberto(s)%s",
+        info["validados"],
+        info["descobertos"],
+        " (busca esgotada)" if info["esgotou_busca"] else "",
+    )
+    return conn, run_id, validados[:TARGET_LEADS], info
+
+
+async def _validar_pendentes(conn: Any, run_id: str, icp: icp_module.ICP) -> None:
+    """S3 dos leads ainda em "descoberto"; os já validados/descartados (retomada) são pulados."""
+    descobertos = db_module.list_leads(conn, run_id, status="descoberto")
     total = len(descobertos)
-    log.info("S1 descoberta: %d lead(s) para validar", total)
+    if total:
+        log.info("S1 descoberta: %d lead(s) para validar", total)
     for posicao, lead in enumerate(descobertos, start=1):
         cnpj = lead["cnpj"]
         try:
@@ -205,10 +235,6 @@ async def _descobrir_ate_validar(
         log.debug("S3 %d/%d %s → %s %s", posicao, total, cnpj, resultado.status, resultado.discard_reason or "")
         if posicao % 10 == 0 or posicao == total:
             log.info("S3 validação: %d/%d", posicao, total)
-
-    validados = db_module.list_leads(conn, run_id, status="validado")
-    log.info("S3 pronto: %d validado(s)", len(validados))
-    return conn, run_id, validados
 
 
 def _ler_sites_json_ou_exit(arquivo: str | None) -> dict[str, str]:
@@ -342,7 +368,7 @@ def descobrir(
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
     async def _pipeline() -> dict[str, Any]:
-        conn, run_id, validados = await _descobrir_ate_validar(
+        conn, run_id, validados, info = await _descobrir_ate_validar(
             icp,
             nicho=nicho,
             uf=uf,
@@ -359,6 +385,7 @@ def descobrir(
             "total": len(leads),
             "leads": leads,
             "descartados": _listar_descartados(conn, run_id),
+            **info,
         }
 
     resultado_final = _run_or_exit(_pipeline())
@@ -394,7 +421,7 @@ def prospectar(
     sites = _ler_sites_json_ou_exit(sites_json)
 
     async def _pipeline() -> dict[str, Any]:
-        conn, run_id, validados = await _descobrir_ate_validar(
+        conn, run_id, validados, info = await _descobrir_ate_validar(
             icp,
             nicho=nicho,
             uf=uf,
@@ -420,6 +447,7 @@ def prospectar(
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["icp"] = _icp_resumo(icp)
         saida["descartados"] = _listar_descartados(conn, run_id)
+        saida.update(info)
         return saida
 
     resultado_final = _run_or_exit(_pipeline())

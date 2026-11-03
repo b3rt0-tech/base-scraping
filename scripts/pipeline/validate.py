@@ -25,6 +25,13 @@ class ValidacaoResult:
     cnae_match: str | None = None  # "principal" | "secundario" | None
 
 
+def _cnae_no_icp(cnae: str | None, cnaes_icp: list[str]) -> bool:
+    """O dicionário usa subclasse (7 dígitos), classe (5) ou grupo (4) — a mesma regra de prefixo da busca
+    avançada. Comparar por igualdade descartava todo lead de nicho cadastrado por prefixo (ex. `56112`).
+    """
+    return cnae is not None and any(cnae.startswith(prefixo) for prefixo in cnaes_icp)
+
+
 def _parse_data(value: str | None) -> date | None:
     if not value:
         return None
@@ -65,9 +72,9 @@ async def validate_lead(
     if icp.cnaes:
         principal = detalhe.cnae_principal()
         secundarios = detalhe.cnaes_secundarios()
-        if principal in icp.cnaes:
+        if _cnae_no_icp(principal, icp.cnaes):
             cnae_match = "principal"
-        elif any(c in icp.cnaes for c in secundarios):
+        elif any(_cnae_no_icp(c, icp.cnaes) for c in secundarios):
             cnae_match = "secundario"
         else:
             return ValidacaoResult(

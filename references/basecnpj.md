@@ -47,7 +47,7 @@ O doc original só descrevia os *conceitos* de filtro, sem os nomes de query str
 
 **Atenção:** como parâmetros errados não geram erro, um nome de filtro incorreto no código falha silenciosamente (a busca simplesmente ignora aquele filtro) — sempre validar mudança em `filtros_aplicados`/`total` ao adicionar um filtro novo, nunca assumir que "não deu erro" significa "funcionou".
 
-**Teto de leads do pipeline (não é limite da API):** a API não impõe teto de resultados no plano Business, mas o pipeline (`scripts/pipeline/discovery.py`, Passo 5) para de paginar `route=avancada` ao atingir **100 leads por execução** — decisão fechada na seção 11 do `ARCTETURE.md`, sem override de CLI.
+**Teto de leads do pipeline (não é limite da API):** a API não impõe teto de resultados no plano Business, mas o pipeline (`scripts/pipeline/discovery.py`, Passo 5) para de paginar `route=avancada` ao atingir **100 leads validados por execução** (ou 500 descobertos, teto de segurança) — decisão fechada na seção 11 do `ARCTETURE.md`, sem override de CLI.
 
 ## Dados retornados pelo detalhe de CNPJ (`route=cnpj`)
 
