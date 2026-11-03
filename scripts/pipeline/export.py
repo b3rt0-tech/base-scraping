@@ -77,9 +77,12 @@ def build_lead_json(
         if matriz_filial_codigo is not None:
             campos_cadastrais["matriz_filial"] = "matriz" if matriz_filial_codigo == "1" else "filial"
 
-        socios = getattr(detalhe, "socios", None)
-        if socios:
-            campos_cadastrais["socios"] = socios
+        decisores = detalhe.decisores()
+        if decisores:
+            campos_cadastrais["decisores"] = [
+                {"nome": d.nome, "qualificacao": d.qualificacao, "desde": d.desde, "origem": d.origem}
+                for d in decisores
+            ]
 
         for campo, valor in campos_cadastrais.items():
             if valor in (None, [], {}):

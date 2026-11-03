@@ -55,6 +55,16 @@ CNPJ básico e formatado, razão social, nome fantasia, capital social, porte, C
 
 **Formato real observado (Passo 4):** os nomes de campo da resposta real são mais granulares do que este resumo sugere — ex. `cnpj_basico`, `cnpj_completo_formatado`, dados de matriz aninhados em `estabelecimento_matriz{situacao_cadastral, situacao_descricao, cnae_principal_codigo, email, uf, municipio, cep, logradouro, ...}`, filiais em `estabelecimentos[]`, opção pelo Simples/MEI em `simples{}`. Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`) para o subconjunto de campos que o pipeline usa — o modelo aceita campos extra (`extra="allow"`) porque a resposta tem mais dado do que o mapeado.
 
+### Quadro societário (`socios[]` na raiz de `route=cnpj`) — formato real observado
+
+Cada item: `nome_razao`, `tipo_socio`, `documento_mascarado`, `data_entrada`, `qualificacao_codigo`, `qualificacao_descricao`, `faixa_etaria_codigo`, `faixa_etaria`, `pais_codigo`, `pais`, `representante_nome`, `representante_qualificacao`. Levantamento com 40 dentistas de Campinas, 3 empresas grandes (Petrobras, Banco do Brasil, Itaú) e 41 holdings de SP:
+
+- `tipo_socio`: **`"1"` = pessoa física** (177/177 casos, sempre com CPF mascarado `***.nnn.nnn-**`); `"3"` = sócio estrangeiro (documento `"—"`, com `representante_nome`). O código não é documentado pela API, então o pipeline decide pessoa física pelo **documento mascarado** e usa `tipo_socio == "1"` só como reserva.
+- Qualificações vistas: `Sócio-Administrador`, `Sócio`, `Administrador`, `Diretor`, `Presidente`, `Conselheiro de Administração`, `Sócio Pessoa Jurídica Domiciliado no Exterior`.
+- **Empresário individual/MEI não tem `socios[]`** (7 de 40 dentistas): `natureza_juridica_descricao` é `"Empresário (Individual)"` e o titular é o nome da `razao_social`.
+- Empresas grandes listam dezenas de nomes (Itaú: 80) e repetem a mesma pessoa em qualificações diferentes.
+- Os nomes vêm com espaço no fim.
+
 ## Rede societária (`route=rede`, exclusiva Business)
 
 Grafo em formato Cytoscape.js ligando empresas e sócios. Limites anti-explosão: fan-out máximo de 20, teto de 1000 nós. Inclui detecção de *orange flags*. Usar `depth=2` como padrão.
