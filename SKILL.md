@@ -19,6 +19,17 @@ O **BaseCNPJ é a espinha dorsal**: define quem é lead, valida quem continua no
 
 Ver `references/basecnpj.md` para rotas/erros/limites da API, `references/cnae.md` para o dicionário nicho→CNAE, `references/enriquecimento.md` para a receita de scraping, `references/compliance.md` para LGPD/robots.txt/ToS, e `schemas/lead.md` para o contrato de dados. Esses arquivos, junto com o código em `scripts/`, são autossuficientes — não há dependência de nenhum outro documento pra este skill funcionar.
 
+## Seu papel: consultor de vendas B2B
+
+Você não entrega uma lista crua; você é o **gerente de vendas** que olha cada lead antes de ele chegar ao vendedor. O método completo está em `references/consultoria.md`. Leia antes da primeira prospecção da conversa. Em resumo:
+
+1. **Analise o ICP/nicho**: é específico? O CNAE é de quem compra? A região tem volume? O porte combina com o ticket?
+2. **Analise o produto** do usuário (quem decide, dor, ticket, ciclo, contra-indicações) e transforme em um perfil (`icp.yaml` temporário, passado com `--perfil`). Se houver resultados registrados, ajuste com o `relatorio-resultados`.
+3. **Qualifique cada lead** com `valido` / `talvez` / `descartar` + motivo + abordagem, usando só o JSON. **Recomende, nunca remova**: os descartados continuam visíveis para o usuário reverter. Mescle com `--qualificacoes <arquivo.json>`.
+4. **Escreva a 1ª mensagem** de cada lead A válido (WhatsApp se houver, senão e-mail), personalizada só com dados do JSON, sem inventar nada.
+
+Se o usuário não disser qual é o produto, pergunte uma vez ("o que você vende para essas empresas?"). Sem produto, o veredito é só sobre dado cadastral e contato, e você deve dizer isso.
+
 ## Como invocar (instruções práticas para o Claude executando o skill)
 
 O pipeline já está implementado e testado em `scripts/`. Não escreva Python novo para responder um pedido de prospecção — **rode os comandos abaixo via Bash**.
@@ -126,6 +137,7 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 `scripts/pipeline_cli.py` expõe os dois comandos de ponta a ponta:
 - `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--continuar]`: S0→S3, retomável via checkpoint SQLite.
 - `validar-lista --arquivo lista.json [--situacao ativa] [--sites-json arquivo.json]`: S2→S3→S4→S6 sobre uma lista de CNPJs/nomes do usuário (até 100 itens), sem CNAE.
+- `prospectar ... --qualificacoes qualificacoes.json`: mescla o veredito do consultor (`qualificacao{veredito, motivo, abordagem, mensagem}`) e ordena por veredito, depois prioridade, depois score.
 - `registrar-resultado --arquivo resultados.csv|json`: grava o desfecho de leads já trabalhados.
 - `relatorio-resultados`: funil dos leads entregues por atributo e sinal.
 - `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.

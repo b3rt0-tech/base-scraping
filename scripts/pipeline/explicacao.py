@@ -155,4 +155,12 @@ def resumo(leads: list[dict[str, Any]]) -> dict[str, Any]:
         "com_site": sum(bool(lead.get("site")) for lead in leads),
         "com_contato_de_contador": sum("contato_de_contador" in f for f in flags),
         "mei": sum("mei" in f for f in flags),
+        **_por_veredito(leads),
     }
+
+
+def _por_veredito(leads: list[dict[str, Any]]) -> dict[str, Any]:
+    vereditos = [(lead.get("qualificacao") or {}).get("veredito") for lead in leads]
+    if not any(vereditos):
+        return {}
+    return {"por_veredito": {v: vereditos.count(v) for v in ("valido", "talvez", "descartar")}}
