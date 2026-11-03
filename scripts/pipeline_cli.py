@@ -7,14 +7,14 @@ from typing import Any, NoReturn
 
 import typer
 
+from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
+from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.resolve import Candidato, resolve_candidato
-from scripts.pipeline.export import export_leads, build_lead_json
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
-from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import ScrapeSession
 from scripts.utils import only_digits

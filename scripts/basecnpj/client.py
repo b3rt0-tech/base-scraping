@@ -80,6 +80,7 @@ async def request(
             with attempt:
                 response = await http_client.get("", params=query, headers=headers, timeout=timeout)
                 return _unwrap(response)
+        raise RuntimeError("loop de retry terminou sem resultado")  # inalcançável: reraise=True
     finally:
         if owns_client:
             await http_client.aclose()

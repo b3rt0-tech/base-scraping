@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from scripts.utils import only_digits
 
-
 _TRECHO_NUMERICO_RE = re.compile(r"\d[\d\s().\-/]*\d")
 TELEFONE_COM_DDD_MIN_DIGITOS = 10
 

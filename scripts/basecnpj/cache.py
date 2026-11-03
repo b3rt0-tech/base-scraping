@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 DEFAULT_CACHE_DIR = Path(".cache/basecnpj")
 DEFAULT_TTL_SECONDS = 30 * 24 * 3600  # 30 dias — dado cadastral muda pouco
