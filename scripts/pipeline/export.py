@@ -133,11 +133,23 @@ def build_lead_json(
     return lead
 
 
+def _chave_ordenacao(lead: dict[str, Any]) -> tuple[float, float, float, int]:
+    """Score; no empate, quem tem mais fit, depois mais capital, depois mais tempo de mercado —
+    desempate explicável ao vendedor, em vez da ordem em que a busca devolveu.
+    """
+    return (
+        lead.get("score", 0),
+        lead.get("score_breakdown", {}).get("fit") or 0,
+        lead.get("capital_social") or 0,
+        lead.get("anos_de_mercado") or 0,
+    )
+
+
 def export_leads(leads: list[dict[str, Any]], *, max_leads: int = MAX_LEADS_POR_EXECUCAO) -> dict[str, Any]:
     """Saída sempre em JSON (decisão fechada, seção 11). Teto fixo de
     `max_leads` — se mais leads chegarem aqui por algum motivo, mantém os de
     maior score em vez de truncar arbitrariamente.
     """
-    ordenados = sorted(leads, key=lambda lead: lead.get("score", 0), reverse=True)
+    ordenados = sorted(leads, key=_chave_ordenacao, reverse=True)
     limitados = ordenados[:max_leads]
     return {"total": len(limitados), "leads": limitados}

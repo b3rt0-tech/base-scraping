@@ -86,6 +86,14 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
   - `multiunidade` / `unidades`: mais de um estabelecimento ativo, conta maior. Vale citar as unidades na abordagem.
   - `anos_de_mercado`: empresa madura ou recém-aberta (`empresa_nova`), o que muda o discurso.
 
+## Perfil do cliente ideal (`icp.yaml`)
+
+O score padrão mede completude de dados, e em um nicho homogêneo quase tudo empata. O que ordena os leads **para o produto do usuário** é o perfil: um YAML no formato de `icp.example.yaml`, passado com `--perfil <arquivo>` em `descobrir`/`prospectar`/`validar-lista`.
+
+- **Quem escreve:** você (o Claude), a partir do produto do usuário. Escolha faixas de capital e tempo de mercado que reflitam quem consegue pagar o ticket, defina se MEI é eliminatório (`excluir.mei`), escolha os critérios que importam e dê peso ao `fit` (tipicamente 30 a 40). Salve o arquivo num caminho temporário e passe com `--perfil`. Não sobrescreva o `icp.yaml` da raiz sem o usuário pedir.
+- **Validação:** perfil inválido (pesos que não somam 100, campo desconhecido) responde `erro: entrada_invalida` explicando o campo; corrija e rode de novo.
+- **Leitura da saída:** `icp.perfil` diz qual arquivo foi aplicado; `score_breakdown.fit` mostra quanto do score veio do encaixe; descartes por perfil vêm em `descartados` com o motivo `perfil: …`.
+
 ## S4 — Enriquecimento por scraping
 
 Implementado em `scripts/scraping/`: `site_discovery.py` (4.1, valida se uma URL candidata é mesmo o site oficial — CNPJ/razão social/nome fantasia/telefone no HTML), `contacts.py` (4.2, rastreia até 5 páginas de alto sinal e extrai e-mail/telefone/WhatsApp/redes sociais), `email_verify.py` (4.3, escada de confiança 1-5 + cruzamento com o cadastral), `context_signals.py` (4.4, e-commerce/tecnologia/indícios de equipe), e `enrich.py` que amarra tudo num `enrich(candidate_url, ...)` por lead.

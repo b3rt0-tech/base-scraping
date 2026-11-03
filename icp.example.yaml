@@ -1,0 +1,43 @@
+# Perfil do cliente ideal (ICP) — copie para `icp.yaml` (raiz da skill) ou passe com `--perfil arquivo.yaml`.
+#
+# O nicho (`references/cnae.md`) diz QUEM buscar; este perfil diz QUEM VALE MAIS para o seu produto.
+# Sem perfil, o score é o padrão (30 aderência + 30 contato + 20 presença digital + 20 saúde cadastral).
+# Todo campo é opcional. Exemplo: software de agenda e prontuário para clínicas odontológicas, ticket
+# de R$ 300/mês, vendido ao dono da clínica por WhatsApp.
+
+descricao: Software de gestão para clínicas odontológicas com estrutura (não consultório de 1 dentista)
+
+# Pesos das dimensões do score — somam 100. `fit` mede o encaixe com os critérios abaixo.
+pesos:
+  aderencia_icp: 20
+  qualidade_contato: 25
+  presenca_digital: 10
+  saude_cadastral: 10
+  fit: 35
+
+# Critérios de fit. Faixas: abaixo de `minimo` vale 0, em `ideal` ou acima vale 1, no meio é proporcional
+# (capital em escala logarítmica). Faixas contínuas também desempatam leads iguais no resto.
+capital_social:
+  minimo: 10000
+  ideal: 300000
+anos_de_mercado:
+  minimo: 1
+  ideal: 8
+unidades:
+  minimo: 1
+  ideal: 3
+portes_preferidos: [ME, EPP]          # ME, EPP, demais
+municipios_prioritarios: [Campinas]   # cidade onde a equipe atende presencialmente
+cnaes_prioritarios: ["8630504"]       # prefixos; CNAE secundário vale metade
+tecnologias: []                       # detectadas no site (wordpress, vtex, shopify…), só com enriquecimento
+whatsapp: true                        # celular cadastral próprio conta como fit (canal de venda do produto)
+
+# Eliminatórios: o lead é descartado na validação e a descoberta repõe outro no lugar.
+excluir:
+  mei: true            # MEI não tem estrutura para o ticket
+  empresa_nova: false  # aberta há menos de 6 meses
+
+# Cortes da prioridade A/B/C (score de 0 a 100).
+prioridade:
+  corte_a: 70
+  corte_b: 50
