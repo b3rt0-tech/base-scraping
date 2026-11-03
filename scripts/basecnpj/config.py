@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +9,14 @@ DEFAULT_BASE_URL = "https://basecnpj.app/api/v1/"
 DEFAULT_TIMEOUT = 10.0
 HEAVY_ROUTE_TIMEOUT = 60.0
 HEAVY_ROUTES = frozenset({"avancada", "rede"})
+# raiz da skill (onde ficam pyproject.toml e .env), independente de onde o comando é chamado
+SKILL_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
 
 
 def _load_dotenv(path: Path) -> None:
@@ -20,10 +29,19 @@ def _load_dotenv(path: Path) -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         if key and key not in os.environ:
-            os.environ[key] = value.strip()
+            os.environ[key] = _unquote(value.strip())
 
 
-_load_dotenv(Path.cwd() / ".env")
+def load_dotenv_files(paths: Iterable[Path] | None = None) -> None:
+    """Carrega o `.env` da raiz da skill e, como fallback, o do diretório atual.
+
+    Variável já definida no ambiente sempre vence; entre os arquivos, vale o primeiro da lista.
+    """
+    for path in paths if paths is not None else (SKILL_ROOT / ".env", Path.cwd() / ".env"):
+        _load_dotenv(path)
+
+
+load_dotenv_files()
 
 
 @dataclass(frozen=True)
