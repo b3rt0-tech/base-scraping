@@ -45,6 +45,11 @@ def test_descobrir(api_dentista, tmp_path):
     codigo, saida = _rodar("descobrir", "dentista", "--uf", "SP", "--db-path", str(tmp_path / "p.sqlite3"))
     assert codigo == 0
     assert saida["total"] == 1
+    assert saida["icp"] == {
+        "nicho": "dentista",
+        "entrada_dicionario": "dentista, clínica odontológica",
+        "cnaes": ["8630504"],
+    }
     assert saida["leads"] == [{"cnpj": CNPJ_PADRAO, "razao_social": "CLINICA SORRISO LTDA"}]
     assert saida["descartados"] == [{"cnpj": OUTRO_CNPJ, "motivo": "situacao_cadastral=08 (esperado 02)"}]
 
@@ -85,6 +90,21 @@ def test_nicho_desconhecido_nao_chama_api(api):
     assert codigo == 1
     assert saida["erro"] == "nicho_nao_encontrado"
     assert chamadas == []
+
+
+def test_nicho_ambiguo_nao_chama_api(api):
+    chamadas = api({})
+    codigo, saida = _rodar("descobrir", "loja")
+    assert codigo == 1
+    assert saida["erro"] == "nicho_ambiguo"
+    assert "loja de roupas" in saida["mensagem"] and "ótica" in saida["mensagem"]
+    assert chamadas == []
+
+
+def test_prospectar_tambem_informa_o_icp(api_dentista, tmp_path):
+    codigo, saida = _rodar("prospectar", "dentista", "--uf", "SP", "--db-path", str(tmp_path / "p.sqlite3"))
+    assert codigo == 0
+    assert saida["icp"]["cnaes"] == ["8630504"]
 
 
 def test_token_invalido(api):

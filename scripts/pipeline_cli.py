@@ -65,6 +65,15 @@ def _resolve_icp_or_exit(
         cep=cep,
         matriz=matriz,
     )
+    if icp.needs_confirmation and icp.candidatos:
+        _exit_with_error(
+            "nicho_ambiguo",
+            (
+                f"Nicho '{nicho}' casa com mais de uma entrada de references/cnae.md: "
+                + " | ".join(icp.candidatos)
+                + ". Pergunte ao usuário qual delas ele quer e rode de novo com o nome dela."
+            ),
+        )
     if icp.needs_confirmation:
         _exit_with_error(
             "nicho_nao_encontrado",
@@ -74,6 +83,11 @@ def _resolve_icp_or_exit(
             ),
         )
     return icp
+
+
+def _icp_resumo(icp: icp_module.ICP) -> dict[str, Any]:
+    """Qual entrada do dicionário foi usada e quais CNAEs vão para a busca — o skill mostra ao usuário."""
+    return {"nicho": icp.nicho, "entrada_dicionario": icp.entrada_dicionario, "cnaes": icp.cnaes}
 
 
 async def _exigir_preflight() -> None:
@@ -217,7 +231,12 @@ def descobrir(
             matriz=matriz,
         )
         leads = [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
-        return {"total": len(leads), "leads": leads, "descartados": _listar_descartados(conn, run_id)}
+        return {
+            "icp": _icp_resumo(icp),
+            "total": len(leads),
+            "leads": leads,
+            "descartados": _listar_descartados(conn, run_id),
+        }
 
     resultado_final = _run_or_exit(_pipeline())
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
@@ -273,6 +292,7 @@ def prospectar(
 
         leads_json = await _enriquecer_e_pontuar(resultados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
+        saida["icp"] = _icp_resumo(icp)
         saida["descartados"] = _listar_descartados(conn, run_id)
         return saida
 
