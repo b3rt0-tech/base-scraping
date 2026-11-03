@@ -172,6 +172,43 @@ async def test_discover_respeita_teto_e_retoma(api, tmp_path):
     assert [int(c.url.params["page"]) for c in chamadas] == [1, 2, 3]
 
 
+async def test_discover_usa_per_page_100_e_uma_chamada_para_100_leads(api, tmp_path):
+    cem = [str(i) for i in range(100)]
+    chamadas = api({"avancada": _paginas({"8630504": [cem, ["x"], ["y"]]})})
+    conn = db.connect(tmp_path / "p.sqlite3")
+
+    leads = await discovery.discover(_icp(nicho="dentista"), conn=conn, run_id="r")
+
+    assert len(leads) == 100
+    assert len(chamadas) == 1  # a página encheu o teto: não busca a página 2 à toa
+    assert chamadas[0].url.params["per_page"] == "100"
+    assert db.get_checkpoint(conn, "r", "8630504") == {"next_page": 2, "exhausted": False}
+
+
+async def test_discover_teto_exato_na_ultima_pagina_marca_esgotado(api, tmp_path):
+    cem = [str(i) for i in range(100)]
+    chamadas = api({"avancada": _paginas({"8630504": [cem]})})
+    conn = db.connect(tmp_path / "p.sqlite3")
+
+    await discovery.discover(_icp(nicho="dentista"), conn=conn, run_id="r")
+
+    assert len(chamadas) == 1
+    assert db.get_checkpoint(conn, "r", "8630504")["exhausted"]
+
+
+async def test_discover_retoma_da_pagina_seguinte_apos_encher_o_teto(api, tmp_path):
+    cem = [str(i) for i in range(100)]
+    chamadas = api({"avancada": _paginas({"8630504": [cem, ["1000", "1001"]]})})
+    conn = db.connect(tmp_path / "p.sqlite3")
+    alvo = _icp(nicho="dentista")
+
+    await discovery.discover(alvo, conn=conn, run_id="r")
+    await discovery.discover(alvo, conn=conn, run_id="r", target_leads=102)
+
+    assert [int(c.url.params["page"]) for c in chamadas] == [1, 2]
+    assert db.count_leads(conn, "r") == 102
+
+
 async def test_discover_recusa_icp_sem_cnae(tmp_path):
     conn = db.connect(tmp_path / "p.sqlite3")
     with pytest.raises(ValueError):
