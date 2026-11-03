@@ -170,6 +170,65 @@ async def test_fetch_teto_de_paginas_por_dominio(respx_mock):
         await scraping_http.fetch(f"{SITE}/", sessao)
 
 
+async def test_fetch_503_nao_e_cacheado_e_e_retentado(respx_mock):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    rota = respx_mock.get(f"{SITE}/").mock(
+        side_effect=[httpx.Response(503), httpx.Response(503), httpx.Response(200, text="voltou")]
+    )
+    resultado = await scraping_http.fetch(f"{SITE}/", scraping_http.ScrapeSession())
+    assert resultado["text"] == "voltou"
+    assert rota.call_count == 3
+
+    # a página boa foi cacheada, os 503 anteriores não
+    await scraping_http.fetch(f"{SITE}/", scraping_http.ScrapeSession())
+    assert rota.call_count == 3
+
+
+async def test_fetch_429_respeita_retry_after(respx_mock):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    rota = respx_mock.get(f"{SITE}/").mock(
+        side_effect=[httpx.Response(429, headers={"Retry-After": "0"}), httpx.Response(200, text="ok")]
+    )
+    assert (await scraping_http.fetch(f"{SITE}/", scraping_http.ScrapeSession()))["text"] == "ok"
+    assert rota.call_count == 2
+
+
+async def test_fetch_503_persistente_levanta_apos_3_tentativas_e_nao_cacheia(respx_mock):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    rota = respx_mock.get(f"{SITE}/").mock(return_value=httpx.Response(503))
+    sessao = scraping_http.ScrapeSession()
+    with pytest.raises(scraping_http.HttpStatusError) as info:
+        await scraping_http.fetch(f"{SITE}/", sessao)
+    assert info.value.status_code == 503
+    assert rota.call_count == 3
+    assert sessao.pages_fetched("sorriso.com.br") == 0
+
+    with pytest.raises(scraping_http.HttpStatusError):
+        await scraping_http.fetch(f"{SITE}/", scraping_http.ScrapeSession())
+    assert rota.call_count == 6  # nada ficou em cache
+
+
+async def test_fetch_404_nao_e_retentado_nem_cacheado(respx_mock):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    rota = respx_mock.get(f"{SITE}/").mock(return_value=httpx.Response(404))
+    for _ in range(2):
+        with pytest.raises(scraping_http.HttpStatusError) as info:
+            await scraping_http.fetch(f"{SITE}/", scraping_http.ScrapeSession())
+        assert info.value.status_code == 404
+    assert rota.call_count == 2
+
+
+async def test_fetch_segue_redirect(respx_mock):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    respx_mock.get("http://sorriso.com.br/").mock(
+        return_value=httpx.Response(301, headers={"Location": f"{SITE}/"})
+    )
+    respx_mock.get(f"{SITE}/").mock(return_value=httpx.Response(200, text="destino"))
+    resultado = await scraping_http.fetch("http://sorriso.com.br/", scraping_http.ScrapeSession())
+    assert resultado["text"] == "destino"
+    assert resultado["url"] == f"{SITE}/"
+
+
 # --- enrich (S4) ----------------------------------------------------------
 
 
@@ -210,3 +269,13 @@ async def test_enrich_falha_de_rede_nao_levanta(respx_mock):
     respx_mock.get(f"{SITE}/").mock(side_effect=httpx.ConnectError("fora do ar"))
     resultado = await enrich(f"{SITE}/", scraping_http.ScrapeSession(), cnpj=CNPJ_PADRAO)
     assert resultado.erro.startswith("ConnectError")
+
+
+@pytest.mark.parametrize("status", [404, 500])
+async def test_enrich_home_com_erro_http_vira_falha(respx_mock, status):
+    respx_mock.get(f"{SITE}/robots.txt").mock(return_value=httpx.Response(404))
+    respx_mock.get(f"{SITE}/").mock(return_value=httpx.Response(status, text="<p>CNPJ 12.345.678/0001-95</p>"))
+    resultado = await enrich(f"{SITE}/", scraping_http.ScrapeSession(), cnpj=CNPJ_PADRAO)
+    assert resultado.erro == f"http_{status}"
+    assert not resultado.site_matched
+    assert resultado.emails == []

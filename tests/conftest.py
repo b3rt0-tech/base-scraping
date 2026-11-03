@@ -80,6 +80,7 @@ def isolar_ambiente(request, monkeypatch, tmp_path):
 
     monkeypatch.setenv("BASECNPJ_TOKEN", "token-de-teste")
     monkeypatch.setattr(basecnpj_client, "_DEFAULT_BACKOFF", lambda retry_state: 0)
+    monkeypatch.setattr(scraping_http, "_DEFAULT_BACKOFF", lambda retry_state: 0)
 
     async def _sem_delay(*args, **kwargs):
         return None

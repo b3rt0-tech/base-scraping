@@ -6,7 +6,7 @@ from typing import Any
 from scripts.scraping.contacts import discover_contacts
 from scripts.scraping.context_signals import ContextSignals, detect_context_signals, parece_requer_js
 from scripts.scraping.email_verify import EmailVerification, MXResolver, verify_email
-from scripts.scraping.http import ScrapeSession, fetch
+from scripts.scraping.http import HttpStatusError, ScrapeSession, fetch
 from scripts.scraping.site_discovery import validar_match
 
 
@@ -46,6 +46,8 @@ async def enrich(
 
     try:
         home = await fetch(candidate_url, session, **fetch_kwargs)
+    except HttpStatusError as exc:
+        return EnrichmentResult(site=candidate_url, erro=f"http_{exc.status_code}")
     except Exception as exc:
         return EnrichmentResult(site=candidate_url, erro=f"{type(exc).__name__}: {exc}")
 
