@@ -53,11 +53,6 @@ def celular_cadastral(detalhe: CNPJDetalhe, *, ignorar: Collection[str] = ()) ->
     return None
 
 
-def eh_mei(detalhe: CNPJDetalhe) -> bool:
-    simples = getattr(detalhe, "simples", None)
-    return isinstance(simples, dict) and simples.get("opcao_mei") is True
-
-
 def unidades_ativas(detalhe: CNPJDetalhe) -> int:
     """Estabelecimentos ativos (matriz + filiais). Sem a lista na resposta, conta 1 (a própria empresa)."""
     ativos = [e for e in detalhe.estabelecimentos if e.situacao_cadastral in (None, _SITUACAO_ATIVA)]
@@ -74,6 +69,15 @@ def anos_de_mercado(detalhe: CNPJDetalhe, *, hoje: date | None = None) -> int | 
     return max(0, anos)
 
 
+def idade_em_anos(detalhe: CNPJDetalhe, *, hoje: date | None = None) -> float | None:
+    """Tempo de mercado fracionário (dias/365,25): contínuo, desempata no fit onde os anos inteiros empatam."""
+    matriz = detalhe.estabelecimento_matriz
+    abertura = _parse_data(matriz.data_inicio_atividade if matriz else None)
+    if abertura is None:
+        return None
+    return max(0.0, ((hoje or _hoje()) - abertura).days / 365.25)
+
+
 def aplicar_sinais(resultados: list[ValidacaoResult]) -> None:
     """Acrescenta os flags de venda: `whatsapp_provavel` (celular cadastral que não é repetido entre empresas),
     `mei` e `multiunidade`. Roda depois de `marcar_contadores`, sobre o lote inteiro (precisa ver repetição).
@@ -86,7 +90,7 @@ def aplicar_sinais(resultados: list[ValidacaoResult]) -> None:
         r.celular_cadastral = celular_cadastral(r.detalhe, ignorar=compartilhados)
         if r.celular_cadastral:
             novos.append(FLAG_WHATSAPP)
-        if eh_mei(r.detalhe):
+        if r.detalhe.eh_mei():
             novos.append(FLAG_MEI)
         if unidades_ativas(r.detalhe) > 1:
             novos.append(FLAG_MULTIUNIDADE)

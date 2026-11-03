@@ -174,8 +174,22 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 | `--verbose` / `-v` | detalhe de cada lead no **stderr** (o stdout continua só com o JSON) |
 | `--quiet` / `-q` | só avisos e erros no stderr (sem progresso) |
 | `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
+| `--perfil` | `icp.yaml` com o perfil do cliente ideal (ver abaixo). Padrão: `icp.yaml` na raiz da skill, se existir |
 
 Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não tem os campos de site/e-mail/redes sociais, que dependem de uma URL candidata (achada via busca web, fora do escopo do script; ver `SKILL.md`).
+
+### 🎯 Perfil do cliente ideal (`icp.yaml`)
+
+O nicho diz **quem buscar**; o perfil diz **quem vale mais para o seu produto**. Copie o [`icp.example.yaml`](icp.example.yaml) para `icp.yaml` (ou passe `--perfil arquivo.yaml`) e ajuste:
+
+- `pesos`: as dimensões do score, que somam 100. Uma dimensão `fit` mede o encaixe com o perfil.
+- **Critérios de fit:**
+  - `capital_social`, `anos_de_mercado` e `unidades` em faixas `minimo`/`ideal`, contínuas, o que também desempata leads.
+  - `portes_preferidos`, `municipios_prioritarios`, `cnaes_prioritarios`, `tecnologias` (do site) e `whatsapp`.
+- `excluir`: critérios eliminatórios (`mei`, `empresa_nova`). O lead é descartado na validação e a descoberta repõe outro.
+- `prioridade`: os cortes de score para A/B/C.
+
+Sem perfil, o score é o padrão (30/30/20/20). Na prática, em dentistas de Campinas, o top 20 passou de **1 score distinto** (todos 64) para **20 distintos** com o perfil de exemplo. Empate restante desempata por fit, depois capital, depois tempo de mercado.
 
 ♻️ Rodar o mesmo comando de novo com os mesmos parâmetros é seguro e rápido: o checkpoint SQLite evita refazer chamadas já feitas.
 

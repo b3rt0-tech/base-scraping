@@ -23,7 +23,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `telefones[]`, `whatsapp[]`, `redes_sociais{}` | S4 | só números (telefone/WhatsApp); `redes_sociais` é `{rede: url}` | só com site confirmado |
 | `contatos[]` (nome, cargo, email) | S4.2 | **não emitido no v1** — extrair pessoa+cargo de HTML livre fica com o Claude, não com script | não emitido |
 | `enriquecimento{status, motivo}` | S4 | `status`: `ok`, `requer_navegador`, `match_fraco` ou `falha`; `motivo` traz o erro (ex. `http_404`) | só com URL candidata |
-| `score`, `score_breakdown{}` | S6 (scoring) | `score_breakdown` traz as 4 dimensões e o `total` | **sempre** |
+| `score`, `score_breakdown{}` | S6 (scoring) | `score_breakdown` traz as 4 dimensões e o `total`; com perfil (`--perfil`/`icp.yaml`) que dá peso ao fit, traz também `fit` e as dimensões reescaladas para os pesos do perfil | **sempre** |
 | `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel`, `contato_de_contador` (e-mail/telefone cadastral provavelmente do escritório de contabilidade: não leva ao decisor e perde o bônus de contato no score), `whatsapp_provavel` (celular cadastral próprio: +6 em qualidade de contato), `mei` (microempreendedor individual: ticket e estrutura mínimos), `multiunidade` (mais de um estabelecimento ativo) | quando houver |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | `fonte`: `basecnpj`, `scraping` ou `pipeline` | **sempre** |
 

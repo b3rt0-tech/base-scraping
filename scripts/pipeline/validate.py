@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -11,6 +11,9 @@ from scripts.basecnpj.config import Settings
 from scripts.basecnpj.models import CNPJDetalhe
 
 from .icp import ICP
+
+if TYPE_CHECKING:
+    from .perfil import PerfilICP
 
 SEIS_MESES_DIAS = 182
 
@@ -50,6 +53,7 @@ async def validate_lead(
     client: httpx.AsyncClient | None = None,
     hoje: date | None = None,
     raw: dict[str, Any] | None = None,
+    perfil: PerfilICP | None = None,
 ) -> ValidacaoResult:
     """S3 — hidrata via `route=cnpj` (a menos que `raw` já venha pronto, útil pra
     testar sem rede) e aplica as regras de descarte/flag da seção 5 do
@@ -117,5 +121,11 @@ async def validate_lead(
     tem_contato_cadastral = bool((matriz.email if matriz else None) or detalhe.telefones)
     if tem_contato_cadastral:
         flags.append("contato_cadastral_disponivel")
+
+    from .perfil import motivo_exclusao  # import tardio: perfil depende de validate para tipos
+
+    motivo_perfil = motivo_exclusao(detalhe, flags, perfil)
+    if motivo_perfil:
+        return ValidacaoResult(cnpj=cnpj, status="descartado", detalhe=detalhe, discard_reason=motivo_perfil)
 
     return ValidacaoResult(cnpj=cnpj, status="validado", detalhe=detalhe, flags=flags, cnae_match=cnae_match)

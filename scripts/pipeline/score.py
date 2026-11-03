@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from scripts.pipeline.perfil import PerfilICP, fit
 from scripts.pipeline.validate import ValidacaoResult
 from scripts.scraping.enrich import EnrichmentResult
 
@@ -28,19 +29,23 @@ class ScoreBreakdown:
     qualidade_contato: float
     presenca_digital: float
     saude_cadastral: float
+    fit: float | None = None  # só com perfil (`icp.yaml`) que dá peso ao fit
 
     @property
     def total(self) -> float:
-        return self.aderencia_icp + self.qualidade_contato + self.presenca_digital + self.saude_cadastral
+        soma = self.aderencia_icp + self.qualidade_contato + self.presenca_digital + self.saude_cadastral
+        return round(soma + (self.fit or 0.0), 2)
 
     def as_dict(self) -> dict[str, float]:
-        return {
+        dimensoes = {
             "aderencia_icp": self.aderencia_icp,
             "qualidade_contato": self.qualidade_contato,
             "presenca_digital": self.presenca_digital,
             "saude_cadastral": self.saude_cadastral,
-            "total": self.total,
         }
+        if self.fit is not None:
+            dimensoes["fit"] = self.fit
+        return {**dimensoes, "total": self.total}
 
 
 def _score_aderencia_icp(validacao: ValidacaoResult) -> float:
@@ -106,15 +111,31 @@ def _score_saude_cadastral(validacao: ValidacaoResult) -> float:
     return min(float(PESO_SAUDE_CADASTRAL), pontos)
 
 
-def compute_score(validacao: ValidacaoResult, enrichment: EnrichmentResult | None = None) -> ScoreBreakdown:
+def compute_score(
+    validacao: ValidacaoResult,
+    enrichment: EnrichmentResult | None = None,
+    perfil: PerfilICP | None = None,
+) -> ScoreBreakdown:
     """S6 — pesos da seção 8 do ARCTETURE.md: 30 aderência ao ICP, 30 qualidade de
     contato, 20 presença digital, 20 saúde cadastral. `enrichment` pode ser None
     (lead sem scraping bem-sucedido continua pontuável, só com menos campos —
     premissa central do ARCTETURE.md).
     """
-    return ScoreBreakdown(
+    base = ScoreBreakdown(
         aderencia_icp=_score_aderencia_icp(validacao),
         qualidade_contato=_score_qualidade_contato(validacao, enrichment),
         presenca_digital=_score_presenca_digital(enrichment),
         saude_cadastral=_score_saude_cadastral(validacao),
+    )
+    if perfil is None:
+        return base
+
+    # com perfil: cada dimensão é reescalada para o peso dele (os pesos padrão dão fator 1) e o fit entra
+    pesos = perfil.pesos
+    return ScoreBreakdown(
+        aderencia_icp=round(base.aderencia_icp * pesos.aderencia_icp / PESO_ADERENCIA_ICP, 2),
+        qualidade_contato=round(base.qualidade_contato * pesos.qualidade_contato / PESO_QUALIDADE_CONTATO, 2),
+        presenca_digital=round(base.presenca_digital * pesos.presenca_digital / PESO_PRESENCA_DIGITAL, 2),
+        saude_cadastral=round(base.saude_cadastral * pesos.saude_cadastral / PESO_SAUDE_CADASTRAL, 2),
+        fit=round(fit(validacao, enrichment, perfil) * pesos.fit, 2) if pesos.fit > 0 else None,
     )

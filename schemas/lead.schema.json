@@ -248,6 +248,18 @@
           },
           "title": "Cnaes",
           "type": "array"
+        },
+        "perfil": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Perfil"
         }
       },
       "required": [
@@ -871,6 +883,18 @@
         "saude_cadastral": {
           "title": "Saude Cadastral",
           "type": "number"
+        },
+        "fit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fit"
         },
         "total": {
           "title": "Total",
