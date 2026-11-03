@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from scripts.basecnpj import cache, client, routes
+from scripts.basecnpj import cache, client, config, routes
 from scripts.basecnpj.config import Settings
 from scripts.basecnpj.errors import (
     AuthError,
@@ -60,6 +60,67 @@ def test_timeout_maior_para_rotas_pesadas():
     assert settings.timeout_for("avancada") == 60
     assert settings.timeout_for("rede") == 60
     assert settings.timeout_for("cnpj") == 10
+
+
+def test_dotenv_da_raiz_da_skill_e_lido_de_outro_diretorio(tmp_path, monkeypatch):
+    raiz = tmp_path / "skill"
+    raiz.mkdir()
+    (raiz / ".env").write_text("BASECNPJ_TOKEN=token-da-raiz\n")
+    outro = tmp_path / "outro"
+    outro.mkdir()
+    monkeypatch.chdir(outro)
+    monkeypatch.setattr(config, "SKILL_ROOT", raiz)
+    monkeypatch.delenv("BASECNPJ_TOKEN")
+
+    config.load_dotenv_files()
+
+    assert config.get_settings().token == "token-da-raiz"
+
+
+def test_dotenv_raiz_vence_cwd_e_ambiente_vence_os_dois(tmp_path, monkeypatch):
+    raiz, cwd = tmp_path / "raiz", tmp_path / "cwd"
+    raiz.mkdir()
+    cwd.mkdir()
+    (raiz / ".env").write_text("A=da-raiz\nB=so-na-raiz\n")
+    (cwd / ".env").write_text("A=do-cwd\nC=so-no-cwd\n")
+    monkeypatch.chdir(cwd)
+    monkeypatch.setattr(config, "SKILL_ROOT", raiz)
+    for chave in ("A", "B", "C", "D"):
+        monkeypatch.delenv(chave, raising=False)
+    monkeypatch.setenv("D", "do-ambiente")
+    (cwd / ".env").write_text("A=do-cwd\nC=so-no-cwd\nD=do-cwd\n")
+
+    config.load_dotenv_files()
+
+    import os
+
+    assert (os.environ["A"], os.environ["B"], os.environ["C"], os.environ["D"]) == (
+        "da-raiz",
+        "so-na-raiz",
+        "so-no-cwd",
+        "do-ambiente",
+    )
+    for chave in ("A", "B", "C"):
+        monkeypatch.delenv(chave)
+
+
+def test_dotenv_remove_aspas_do_valor(tmp_path, monkeypatch):
+    arquivo = tmp_path / ".env"
+    arquivo.write_text("X1=\"com-aspas\"\nX2='simples'\nX3=sem\n")
+    for chave in ("X1", "X2", "X3"):
+        monkeypatch.delenv(chave, raising=False)
+
+    config.load_dotenv_files([arquivo])
+
+    import os
+
+    assert (os.environ["X1"], os.environ["X2"], os.environ["X3"]) == ("com-aspas", "simples", "sem")
+    for chave in ("X1", "X2", "X3"):
+        monkeypatch.delenv(chave)
+
+
+def test_skill_root_aponta_para_a_raiz_do_projeto():
+    assert (config.SKILL_ROOT / "pyproject.toml").is_file()
 
 
 # --- cache ----------------------------------------------------------------
