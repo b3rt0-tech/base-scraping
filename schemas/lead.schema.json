@@ -13,6 +13,15 @@
       "$ref": "#/$defs/SaidaValidarLista"
     },
     {
+      "$ref": "#/$defs/SaidaArquivo"
+    },
+    {
+      "$ref": "#/$defs/SaidaRegistrarResultado"
+    },
+    {
+      "$ref": "#/$defs/SaidaRelatorioResultados"
+    },
+    {
       "$ref": "#/$defs/Erro"
     }
   ],
@@ -246,6 +255,120 @@
         "mensagem"
       ],
       "title": "Erro",
+      "type": "object"
+    },
+    "Funil": {
+      "additionalProperties": false,
+      "description": "Contagem por etapa (quem chegou a reunião também respondeu) e taxas sobre o total com resultado.",
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "respondeu": {
+          "title": "Respondeu",
+          "type": "integer"
+        },
+        "reuniao": {
+          "title": "Reuniao",
+          "type": "integer"
+        },
+        "ganho": {
+          "title": "Ganho",
+          "type": "integer"
+        },
+        "perdido": {
+          "title": "Perdido",
+          "type": "integer"
+        },
+        "nao_e_fit": {
+          "title": "Nao E Fit",
+          "type": "integer"
+        },
+        "taxa_resposta": {
+          "title": "Taxa Resposta",
+          "type": "number"
+        },
+        "taxa_reuniao": {
+          "title": "Taxa Reuniao",
+          "type": "number"
+        },
+        "taxa_ganho": {
+          "title": "Taxa Ganho",
+          "type": "number"
+        }
+      },
+      "required": [
+        "total",
+        "respondeu",
+        "reuniao",
+        "ganho",
+        "perdido",
+        "nao_e_fit",
+        "taxa_resposta",
+        "taxa_reuniao",
+        "taxa_ganho"
+      ],
+      "title": "Funil",
+      "type": "object"
+    },
+    "GrupoFunil": {
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "respondeu": {
+          "title": "Respondeu",
+          "type": "integer"
+        },
+        "reuniao": {
+          "title": "Reuniao",
+          "type": "integer"
+        },
+        "ganho": {
+          "title": "Ganho",
+          "type": "integer"
+        },
+        "perdido": {
+          "title": "Perdido",
+          "type": "integer"
+        },
+        "nao_e_fit": {
+          "title": "Nao E Fit",
+          "type": "integer"
+        },
+        "taxa_resposta": {
+          "title": "Taxa Resposta",
+          "type": "number"
+        },
+        "taxa_reuniao": {
+          "title": "Taxa Reuniao",
+          "type": "number"
+        },
+        "taxa_ganho": {
+          "title": "Taxa Ganho",
+          "type": "number"
+        },
+        "valor": {
+          "title": "Valor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "total",
+        "respondeu",
+        "reuniao",
+        "ganho",
+        "perdido",
+        "nao_e_fit",
+        "taxa_resposta",
+        "taxa_reuniao",
+        "taxa_ganho",
+        "valor"
+      ],
+      "title": "GrupoFunil",
       "type": "object"
     },
     "Icp": {
@@ -737,6 +860,44 @@
       "title": "LeadResumo",
       "type": "object"
     },
+    "LinhaIgnorada": {
+      "additionalProperties": false,
+      "properties": {
+        "linha": {
+          "title": "Linha",
+          "type": "integer"
+        },
+        "motivo": {
+          "title": "Motivo",
+          "type": "string"
+        }
+      },
+      "required": [
+        "linha",
+        "motivo"
+      ],
+      "title": "LinhaIgnorada",
+      "type": "object"
+    },
+    "MotivoPerda": {
+      "additionalProperties": false,
+      "properties": {
+        "motivo": {
+          "title": "Motivo",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "motivo",
+        "total"
+      ],
+      "title": "MotivoPerda",
+      "type": "object"
+    },
     "NaoResolvido": {
       "additionalProperties": false,
       "properties": {
@@ -864,6 +1025,73 @@
       "title": "Resumo",
       "type": "object"
     },
+    "SaidaArquivo": {
+      "additionalProperties": false,
+      "description": "Com `--formato csv|xlsx`: os leads vão para o arquivo; o stdout continua sendo um JSON.",
+      "properties": {
+        "arquivo": {
+          "title": "Arquivo",
+          "type": "string"
+        },
+        "formato": {
+          "enum": [
+            "csv",
+            "xlsx"
+          ],
+          "title": "Formato",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "resumo": {
+          "$ref": "#/$defs/Resumo"
+        },
+        "lote": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lote"
+        },
+        "esgotou_busca": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Esgotou Busca"
+        },
+        "excluidos": {
+          "default": 0,
+          "title": "Excluidos",
+          "type": "integer"
+        },
+        "descartados": {
+          "default": 0,
+          "title": "Descartados",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "arquivo",
+        "formato",
+        "total",
+        "resumo"
+      ],
+      "title": "SaidaArquivo",
+      "type": "object"
+    },
     "SaidaDescobrir": {
       "additionalProperties": false,
       "properties": {
@@ -893,6 +1121,11 @@
         "excluidos": {
           "default": 0,
           "title": "Excluidos",
+          "type": "integer"
+        },
+        "ja_trabalhados": {
+          "default": 0,
+          "title": "Ja Trabalhados",
           "type": "integer"
         },
         "leads": {
@@ -954,6 +1187,11 @@
           "title": "Excluidos",
           "type": "integer"
         },
+        "ja_trabalhados": {
+          "default": 0,
+          "title": "Ja Trabalhados",
+          "type": "integer"
+        },
         "leads": {
           "items": {
             "$ref": "#/$defs/Lead"
@@ -984,6 +1222,99 @@
         "descartados"
       ],
       "title": "SaidaProspectar",
+      "type": "object"
+    },
+    "SaidaRegistrarResultado": {
+      "additionalProperties": false,
+      "properties": {
+        "registrados": {
+          "title": "Registrados",
+          "type": "integer"
+        },
+        "por_status": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "contatado",
+              "respondeu",
+              "reuniao",
+              "ganho",
+              "perdido",
+              "nao_e_fit"
+            ]
+          },
+          "title": "Por Status",
+          "type": "object"
+        },
+        "ignorados": {
+          "items": {
+            "$ref": "#/$defs/LinhaIgnorada"
+          },
+          "title": "Ignorados",
+          "type": "array"
+        }
+      },
+      "required": [
+        "registrados",
+        "por_status",
+        "ignorados"
+      ],
+      "title": "SaidaRegistrarResultado",
+      "type": "object"
+    },
+    "SaidaRelatorioResultados": {
+      "additionalProperties": false,
+      "properties": {
+        "geral": {
+          "$ref": "#/$defs/Funil"
+        },
+        "sem_dados_de_entrega": {
+          "title": "Sem Dados De Entrega",
+          "type": "integer"
+        },
+        "por_dimensao": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/GrupoFunil"
+            },
+            "type": "array"
+          },
+          "propertyNames": {
+            "enum": [
+              "cnae_principal",
+              "porte",
+              "municipio",
+              "prioridade"
+            ]
+          },
+          "title": "Por Dimensao",
+          "type": "object"
+        },
+        "por_sinal": {
+          "items": {
+            "$ref": "#/$defs/SinalFunil"
+          },
+          "title": "Por Sinal",
+          "type": "array"
+        },
+        "motivos_de_perda": {
+          "items": {
+            "$ref": "#/$defs/MotivoPerda"
+          },
+          "title": "Motivos De Perda",
+          "type": "array"
+        }
+      },
+      "required": [
+        "geral",
+        "sem_dados_de_entrega",
+        "por_dimensao",
+        "por_sinal",
+        "motivos_de_perda"
+      ],
+      "title": "SaidaRelatorioResultados",
       "type": "object"
     },
     "SaidaValidarLista": {
@@ -1089,6 +1420,28 @@
         "total"
       ],
       "title": "ScoreBreakdown",
+      "type": "object"
+    },
+    "SinalFunil": {
+      "additionalProperties": false,
+      "properties": {
+        "sinal": {
+          "title": "Sinal",
+          "type": "string"
+        },
+        "com": {
+          "$ref": "#/$defs/Funil"
+        },
+        "sem": {
+          "$ref": "#/$defs/Funil"
+        }
+      },
+      "required": [
+        "sinal",
+        "com",
+        "sem"
+      ],
+      "title": "SinalFunil",
       "type": "object"
     }
   }

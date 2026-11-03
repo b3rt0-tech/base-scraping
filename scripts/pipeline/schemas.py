@@ -153,6 +153,7 @@ class SaidaDescobrir(_Modelo):
     validados: int
     esgotou_busca: bool
     excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
+    ja_trabalhados: int = 0  # já têm resultado registrado (`registrar-resultado`): não voltam
     leads: list[LeadResumo]
     descartados: list[Descartado]
 
@@ -165,6 +166,7 @@ class SaidaProspectar(_Modelo):
     validados: int
     esgotou_busca: bool
     excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
+    ja_trabalhados: int = 0  # já têm resultado registrado (`registrar-resultado`): não voltam
     leads: list[Lead]
     resumo: Resumo
     descartados: list[Descartado]
@@ -193,12 +195,68 @@ class SaidaArquivo(_Modelo):
     descartados: int = 0
 
 
+class Funil(_Modelo):
+    """Contagem por etapa (quem chegou a reunião também respondeu) e taxas sobre o total com resultado."""
+
+    total: int
+    respondeu: int
+    reuniao: int
+    ganho: int
+    perdido: int
+    nao_e_fit: int
+    taxa_resposta: float
+    taxa_reuniao: float
+    taxa_ganho: float
+
+
+class GrupoFunil(Funil):
+    valor: str
+
+
+class SinalFunil(_Modelo):
+    sinal: str
+    com: Funil
+    sem: Funil
+
+
+class MotivoPerda(_Modelo):
+    motivo: str
+    total: int
+
+
+class SaidaRelatorioResultados(_Modelo):
+    geral: Funil
+    sem_dados_de_entrega: int  # resultado de CNPJ que não saiu desta skill (sem atributos para cruzar)
+    por_dimensao: dict[Literal["cnae_principal", "porte", "municipio", "prioridade"], list[GrupoFunil]]
+    por_sinal: list[SinalFunil]
+    motivos_de_perda: list[MotivoPerda]
+
+
+class LinhaIgnorada(_Modelo):
+    linha: int
+    motivo: str
+
+
+class SaidaRegistrarResultado(_Modelo):
+    registrados: int
+    por_status: dict[Literal["contatado", "respondeu", "reuniao", "ganho", "perdido", "nao_e_fit"], int]
+    ignorados: list[LinhaIgnorada]
+
+
 class Erro(_Modelo):
     erro: str
     mensagem: str
 
 
-MODELOS_DE_SAIDA = (SaidaDescobrir, SaidaProspectar, SaidaValidarLista, Erro)
+MODELOS_DE_SAIDA = (
+    SaidaDescobrir,
+    SaidaProspectar,
+    SaidaValidarLista,
+    SaidaArquivo,
+    SaidaRegistrarResultado,
+    SaidaRelatorioResultados,
+    Erro,
+)
 
 
 def gerar_json_schema() -> dict[str, Any]:

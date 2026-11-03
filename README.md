@@ -180,6 +180,17 @@ uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 
 Sem `--sites-json`, `prospectar` tenta sozinho o **domínio do e-mail cadastral** quando ele é da empresa (não Gmail/Hotmail etc., não de contador) e só mantém o site se ele confirmar ser a empresa (`site_origem: email_cadastral`). Em dentistas de Campinas isso confirmou 10 sites em 100 leads sem nenhuma busca web. Para os demais, a URL candidata vem da busca web da skill (ver `SKILL.md`) via `--sites-json`, que tem prioridade.
 
+### 📈 Aprender com resultados
+
+```bash
+# o que aconteceu com os leads trabalhados (CSV/JSON com cnpj, status, motivo)
+uv run python -m scripts.pipeline_cli registrar-resultado --arquivo resultados.csv
+# funil por prioridade, CNAE, porte, cidade e sinal (MEI, WhatsApp, multiunidade, contador)
+uv run python -m scripts.pipeline_cli relatorio-resultados
+```
+
+Status: `contatado`, `respondeu`, `reuniao`, `ganho`, `perdido` e `nao_e_fit`. Também valem variações em português, como "Reunião marcada" e "sem interesse". CNPJ com resultado **não volta** como lead novo (`ja_trabalhados` na saída). O relatório é a base para ajustar o `icp.yaml`. O banco guarda só o CNPJ e atributos da empresa, sem dado pessoal.
+
 ### 📤 Planilha para o CRM (`--formato csv|xlsx`)
 
 ```bash
