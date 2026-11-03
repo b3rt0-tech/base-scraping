@@ -28,6 +28,7 @@ Reprocessar o pipeline não deve refazer nenhuma requisição já cacheada e vá
 - **Nome e e-mail de pessoa física são dado pessoal.**
 - Base legal: legítimo interesse para contato B2B, com finalidade clara, opt-out e registro de origem.
 - Não coletar dado de sócio além do que a Receita Federal já publica.
+- **Minimização no quadro societário:** do `socios[]` da API só o **nome e a qualificação** das pessoas físicas (até 3, as mais prováveis de decidir a compra) entram no lead (`decisores[]`). O `documento_mascarado` (CPF parcial) e a `faixa_etaria` são lidos apenas para classificar o sócio e **descartados na leitura** — não ficam no modelo, no SQLite de checkpoint nem na saída. Sócio pessoa jurídica/estrangeiro não é listado.
 - Não burlar login, paywall, CAPTCHA ou `robots.txt`.
 - A **proveniência por campo** (fonte, URL/rota, timestamp — ver `schemas/lead.md`) é o que sustenta essa conformidade na prática: para qualquer campo, deve ser possível responder de onde veio e quando.
 

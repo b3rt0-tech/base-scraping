@@ -47,3 +47,11 @@ async def test_avancada_real_aceita_per_page_100():
     data = await routes.avancada(uf="SP", municipio="Campinas", cnae="8630504", situacao="02", per_page=100, use_cache=False)
     assert len(data["items"]) == 100
     assert data["per_page"] == 100
+
+
+async def test_decisores_reais_sem_dado_pessoal_alem_do_nome():
+    detalhe = CNPJDetalhe.model_validate(await routes.cnpj(CNPJ_PETROBRAS, use_cache=False))
+    decisores = detalhe.decisores()
+    assert 1 <= len(decisores) <= 3
+    assert all(d.origem == "quadro_societario" and d.nome and d.qualificacao for d in decisores)
+    assert "***" not in str(detalhe.model_dump())  # CPF mascarado não é guardado

@@ -40,6 +40,15 @@ class Email(_Modelo):
     confianca: Literal["invalido", "baixa", "media", "boa", "alta", "alta_nominal", "maxima"]
 
 
+class Decisor(_Modelo):
+    """Quem provavelmente decide a compra. Só nome público e qualificação — sem CPF nem faixa etária."""
+
+    nome: str
+    qualificacao: str
+    desde: str | None = None
+    origem: Literal["quadro_societario", "razao_social_titular"]
+
+
 class Enriquecimento(_Modelo):
     status: Literal["ok", "requer_navegador", "match_fraco", "falha"]
     motivo: str | None = None
@@ -69,7 +78,7 @@ class Lead(_Modelo):
     endereco: Endereco | None = None
     telefone_cadastral: str | None = None
     email_cadastral: str | None = None
-    socios: list[Any] | None = None
+    decisores: list[Decisor] | None = None
     # scraping (S4) — só quando há site candidato confirmado
     site: str | None = None
     emails: list[Email] | None = None

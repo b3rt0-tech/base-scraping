@@ -46,6 +46,37 @@ _CNPJ_RAW: dict[str, Any] = {
         {"tipo": "Secundária", "cnae": "8630506", "desc": "Vacinação"},
     ],
     "telefones": [{"tipo": "Fixo", "ddd": "19", "numero": "32345678"}],
+    # formato real de route=cnpj (documento_mascarado e faixa_etaria NÃO podem chegar à saída)
+    "socios": [
+        {
+            "nome_razao": "ANA SOUZA LIMA",
+            "tipo_socio": "1",
+            "documento_mascarado": "***.123.456-**",
+            "data_entrada": "2015-03-10",
+            "qualificacao_codigo": "49",
+            "qualificacao_descricao": "Sócio-Administrador",
+            "faixa_etaria_codigo": "4",
+            "faixa_etaria": "41 a 50 anos",
+            "pais_codigo": None,
+            "pais": None,
+            "representante_nome": None,
+            "representante_qualificacao": "Não informada",
+        },
+        {
+            "nome_razao": "CARLOS PEREIRA",
+            "tipo_socio": "1",
+            "documento_mascarado": "***.654.321-**",
+            "data_entrada": "2018-06-01",
+            "qualificacao_codigo": "22",
+            "qualificacao_descricao": "Sócio",
+            "faixa_etaria_codigo": "5",
+            "faixa_etaria": "51 a 60 anos",
+            "pais_codigo": None,
+            "pais": None,
+            "representante_nome": None,
+            "representante_qualificacao": "Não informada",
+        },
+    ],
 }
 
 

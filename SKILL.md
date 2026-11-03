@@ -76,6 +76,7 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 - `route=cnpj` para cada lead — aqui o BaseCNPJ vira filtro de qualidade.
 - Regras de descarte/flag: situação ≠ ativa → descarta; CNAE fora do ICP (nem secundário bate) → descarta; CNAE só secundário → mantém, rebaixa score; porte fora da faixa → descarta; abertura < 6 meses → flag "empresa nova"; filial quando ICP pede matriz → descarta.
 - Lead com e-mail/telefone cadastral já sai **contactável sem scraping** — ganho direto.
+- Todo lead traz `decisores[]` (até 3 pessoas físicas do quadro societário, ou o titular quando é empresário individual): use-os para dizer ao vendedor **com quem falar**. A `origem` `razao_social_titular` significa que o nome é o da razão social (MEI/EI) e pode ter sufixo de atividade.
 
 ## S4 — Enriquecimento por scraping
 
