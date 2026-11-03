@@ -40,6 +40,13 @@ TEAM_TITLE_KEYWORDS = [
     "coordenadora",
 ]
 
+# Palavra inteira, com plural opcional: "diretora" não é mais contada também como "diretor",
+# e "diretores"/"sócios" contam. O que fica de fora é o termo dentro de outra palavra.
+_TEAM_TITLE_RE = re.compile(
+    r"(?<!\w)(?:" + "|".join(re.escape(kw) for kw in TEAM_TITLE_KEYWORDS) + r")(?:e?s)?(?!\w)"
+)
+_NON_CONTENT_TAGS = ["script", "style", "noscript"]  # código e CSS não são texto da página
+
 _SPA_MARKERS = ['id="root"', 'id="__next"', "you need to enable javascript", "please enable javascript"]
 _SPA_MIN_TEXT_LEN = 200
 
@@ -56,8 +63,10 @@ def detect_context_signals(html: str) -> ContextSignals:
     é uma heurística de contagem de menções a cargos, não um número confiável de
     funcionários; serve só como sinal relativo para o score (S6).
     """
-    texto = HTMLParser(html).text(separator=" ").lower()
-    html_lower = html.lower()
+    tree = HTMLParser(html)
+    tree.strip_tags(_NON_CONTENT_TAGS)
+    texto = tree.text(separator=" ").lower()
+    html_lower = html.lower()  # fingerprints de tecnologia moram em src/href/scripts: usa o HTML inteiro
 
     ecommerce = any(sinal in texto for sinal in ECOMMERCE_SIGNALS)
     tecnologias = [
@@ -65,7 +74,7 @@ def detect_context_signals(html: str) -> ContextSignals:
         for nome, padroes in TECH_FINGERPRINTS.items()
         if any(re.search(padrao, html_lower) for padrao in padroes)
     ]
-    indicios_equipe = sum(texto.count(kw) for kw in TEAM_TITLE_KEYWORDS)
+    indicios_equipe = len(_TEAM_TITLE_RE.findall(texto))
 
     return ContextSignals(ecommerce=ecommerce, tecnologias=tecnologias, indicios_equipe=indicios_equipe)
 

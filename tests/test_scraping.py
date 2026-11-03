@@ -7,7 +7,7 @@ import pytest
 
 from scripts.scraping import http as scraping_http
 from scripts.scraping.contacts import discover_contacts, extract_contacts_from_html
-from scripts.scraping.context_signals import detect_context_signals, parece_requer_js
+from scripts.scraping.context_signals import detect_context_signals
 from scripts.scraping.email_verify import verify_email
 from scripts.scraping.enrich import enrich
 from scripts.scraping.site_discovery import validar_match
@@ -154,17 +154,33 @@ def test_detect_context_signals():
     assert sinais.tecnologias == ["wordpress"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="bug: 'diretora' casa 'diretor' e 'diretora' em TEAM_TITLE_KEYWORDS (texto.count por substring)",
+@pytest.mark.parametrize(
+    "html, esperado",
+    [
+        ("<p>Fale com nossa diretora clínica.</p>", 1),  # era 2 (casava "diretor" e "diretora")
+        ("<p>Diretor e diretora comercial</p>", 2),
+        ("<p>Os diretores, os sócios e as sócias.</p>", 3),  # plural conta
+        ("<p>Fundadora e Fundador; coordenadora e coordenador.</p>", 4),
+        ("<p>Nosso CEO e o founder</p>", 2),
+        ("<p>O DIRETOR geral</p>", 1),  # caixa
+        ("<p>Falamos com o sócio-administrador.</p>", 1),  # hífen separa palavras
+        ("<p>chanceleria, subdiretoria, gerentear, ceofobia, sociólogo</p>", 0),  # termo dentro de outra palavra
+        ("<p>Atendimento ao cliente</p>", 0),
+        ('<script>var diretor = "gerente";</script><p>Só o gerente aparece.</p>', 1),  # script não é texto
+    ],
 )
-def test_indicios_equipe_nao_conta_feminino_em_dobro():
-    assert detect_context_signals("<p>Fale com nossa diretora clínica.</p>").indicios_equipe == 1
+def test_indicios_equipe_conta_palavra_inteira(html, esperado):
+    assert detect_context_signals(html).indicios_equipe == esperado
 
 
-def test_parece_requer_js():
-    assert parece_requer_js('<html><body><div id="root"></div></body></html>')
-    assert not parece_requer_js(HOME_HTML)
+def test_ecommerce_ignora_palavra_dentro_de_script():
+    assert not detect_context_signals("<script>function checkout(){}</script><p>Olá</p>").ecommerce
+    assert detect_context_signals("<script>x</script><p>Finalizar compra</p>").ecommerce
+
+
+def test_tecnologia_ainda_e_detectada_pelo_html_inteiro():
+    html = '<script src="https://cdn.shopify.com/s/files/x.js"></script><p>oi</p>'
+    assert detect_context_signals(html).tecnologias == ["shopify"]
 
 
 # --- http -----------------------------------------------------------------
