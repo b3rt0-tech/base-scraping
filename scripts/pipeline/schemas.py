@@ -165,6 +165,7 @@ class SaidaDescobrir(_Modelo):
     esgotou_busca: bool
     excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
     ja_trabalhados: int = 0  # já têm resultado registrado (`registrar-resultado`): não voltam
+    mesma_empresa: int = 0  # outras unidades (mesma raiz) de empresas já no lote: uma conta por empresa
     leads: list[LeadResumo]
     descartados: list[Descartado]
 
@@ -178,6 +179,7 @@ class SaidaProspectar(_Modelo):
     esgotou_busca: bool
     excluidos: int = 0  # já no CRM (`--excluir`): não entram nem em `descartados`
     ja_trabalhados: int = 0  # já têm resultado registrado (`registrar-resultado`): não voltam
+    mesma_empresa: int = 0  # outras unidades (mesma raiz) de empresas já no lote: uma conta por empresa
     leads: list[Lead]
     resumo: Resumo
     descartados: list[Descartado]

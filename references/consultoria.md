@@ -53,6 +53,7 @@ Regras:
 - **Recomende, nunca remova.** O lead `descartar` continua na saída (no fim da lista), com o motivo. O usuário vê e pode discordar.
 - **Motivo em uma frase de vendas**, citando o dado: "3 unidades e 12 anos de mercado, perfil de rede que precisa de agenda centralizada". Evite frases genéricas como "bom lead".
 - **Abordagem**: canal (o `melhor_canal`), com quem falar (o primeiro `decisor`) e o gancho (o sinal mais forte). Se houver `contato_de_contador`, diga para não usar o contato do cadastro.
+- **Lead C só por falta de canal** (bom fit, mas o único contato é o do contador): antes de dar `talvez`, procure o site na web e rode de novo com `--sites-json`. Achando canal, ele sobe de prioridade.
 - Para cada lead `valido` com prioridade **A**, escreva a **1ª mensagem** (seção 4).
 
 Grave as qualificações num JSON temporário e rode o mesmo `prospectar` com `--qualificacoes <arquivo>`. A repetição é rápida, porque usa o checkpoint e o cache. Formato:

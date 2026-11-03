@@ -82,6 +82,7 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 ### S1 — Descoberta via busca avançada
 - Motor primário de descoberta (plano Business não tem teto de chamadas).
 - Para cada CNAE do conjunto do nicho, paginar `route=avancada` (até 100/página) até esgotar ou atingir o teto.
+- **Uma conta por empresa**: a 2ª unidade de uma empresa (mesma raiz de CNPJ) já no lote não ocupa vaga (`mesma_empresa` na saída); o lead da conta informa `unidades`.
 - **Teto fixo de 100 leads validados por execução, sem override do usuário**: a descoberta pede só o que falta, valida e repete até 100 validados, até a busca esgotar ou até o teto de segurança de 500 descobertos. A saída informa `descobertos`, `validados` e `esgotou_busca`; com `esgotou_busca: true` e menos de 100, avise o usuário que o nicho/região acabou.
 - Deduplicar por CNPJ na união dos resultados de todos os CNAEs.
 - Consultas com filtro de capital/porte podem levar 5-30s — usar timeout generoso, nunca o padrão curto.
