@@ -189,6 +189,81 @@ def test_validar_lista(api, tmp_path):
     assert "aviso" not in saida
 
 
+def _lista_bytes(tmp_path, conteudo: bytes):
+    arquivo = tmp_path / "lista.json"
+    arquivo.write_bytes(conteudo)
+    return arquivo
+
+
+def test_validar_lista_fora_de_utf8_vira_erro_json_nao_traceback(api, tmp_path):
+    chamadas = api({})
+    latin1 = '[{"nome": "Padaria São João"}]'.encode("latin-1")
+    codigo, saida = _rodar("validar-lista", "--arquivo", str(_lista_bytes(tmp_path, latin1)))
+    assert codigo == 1
+    assert saida["erro"] == "entrada_invalida"
+    assert "UTF-8" in saida["mensagem"]
+    assert chamadas == []
+
+
+def test_validar_lista_com_bom_e_aceita(api, tmp_path):
+    api({"status": {"status": "ok"}, "cnpj": cnpj_handler({CNPJ_PADRAO: make_cnpj_raw()})})
+    com_bom = b"\xef\xbb\xbf" + json.dumps([{"cnpj": CNPJ_PADRAO}]).encode()
+    codigo, saida = _rodar("validar-lista", "--arquivo", str(_lista_bytes(tmp_path, com_bom)))
+    assert codigo == 0
+    assert saida["total"] == 1
+
+
+@pytest.mark.parametrize(
+    "lista, trecho",
+    [
+        ([{"cnpj": CNPJ_PADRAO}, {"nome": 123}], "item 2 da lista: 'nome' deve ser texto, veio int"),
+        ([{"nome": ["Padaria"]}], "item 1 da lista: 'nome' deve ser texto, veio list"),
+        ([{"cnpj": CNPJ_PADRAO, "uf": 35}], "item 1 da lista: 'uf' deve ser texto"),
+        ([{"nome": "X", "municipio": {"a": 1}}], "item 1 da lista: 'municipio' deve ser texto"),
+        ([{"cnpj": True}], "item 1 da lista: 'cnpj' deve ser texto ou número, veio bool"),
+        ([{"cnpj": ["1"]}], "'cnpj' deve ser texto ou número, veio list"),
+        ([{"cnpj": CNPJ_PADRAO}, "so um texto"], "item 2 da lista: veio str, esperado um objeto"),
+        ([{"uf": "SP"}], "item 1 da lista: sem 'cnpj' nem 'nome'"),
+        ([{"nome": "   "}], "item 1 da lista: sem 'cnpj' nem 'nome'"),
+        ({"cnpj": CNPJ_PADRAO}, "deve ser uma lista"),
+    ],
+)
+def test_validar_lista_item_invalido_aponta_a_posicao(api, tmp_path, lista, trecho):
+    chamadas = api({})
+    codigo, saida = _rodar("validar-lista", "--arquivo", str(_lista_bytes(tmp_path, json.dumps(lista).encode())))
+    assert codigo == 1
+    assert saida["erro"] == "entrada_invalida"
+    assert trecho in saida["mensagem"]
+    assert chamadas == []  # falha antes de qualquer chamada à API
+
+
+def test_validar_lista_cnpj_numerico_recupera_zeros_a_esquerda(api, tmp_path):
+    cnpj_com_zero = "00000000000191"  # Banco do Brasil
+    chamadas = api(
+        {"status": {"status": "ok"}, "cnpj": cnpj_handler({cnpj_com_zero: make_cnpj_raw()})}
+    )
+    codigo, saida = _rodar("validar-lista", "--arquivo", str(_lista_bytes(tmp_path, b"[{\"cnpj\": 191}]")))
+    assert codigo == 0
+    assert saida["total"] == 1
+    assert [c.url.params["cnpj"] for c in chamadas if c.url.params["route"] == "cnpj"] == [cnpj_com_zero]
+
+
+def test_sites_json_com_bom_e_fora_de_utf8(api, tmp_path):
+    api({"status": {"status": "ok"}})
+    lista = _lista_bytes(tmp_path, json.dumps([{"cnpj": "123"}]).encode())
+
+    com_bom = tmp_path / "bom.json"
+    com_bom.write_bytes(b"\xef\xbb\xbf" + json.dumps({CNPJ_PADRAO: "https://x.com.br"}).encode())
+    codigo, _ = _rodar("validar-lista", "--arquivo", str(lista), "--sites-json", str(com_bom))
+    assert codigo == 0
+
+    latin1 = tmp_path / "latin1.json"
+    latin1.write_bytes('{"12345678000195": "https://café.com.br"}'.encode("latin-1"))
+    codigo, saida = _rodar("validar-lista", "--arquivo", str(lista), "--sites-json", str(latin1))
+    assert codigo == 1
+    assert saida["erro"] == "entrada_invalida" and "UTF-8" in saida["mensagem"]
+
+
 def test_validar_lista_acima_do_teto_avisa(api, tmp_path):
     api({"status": {"status": "ok"}})
     lista = tmp_path / "lista.json"
