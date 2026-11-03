@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse
 
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
 from scripts.scraping.http import ScrapeSession, fetch
 from scripts.utils import only_digits
