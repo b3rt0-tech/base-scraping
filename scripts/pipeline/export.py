@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from scripts.pipeline.explicacao import explicar, resumo
+from scripts.pipeline.perfil import PerfilICP
 from scripts.pipeline.score import ScoreBreakdown
 from scripts.pipeline.sinais import anos_de_mercado, unidades_ativas
 from scripts.pipeline.validate import ValidacaoResult
@@ -33,6 +35,7 @@ def build_lead_json(
     *,
     validado_em: float | None = None,
     enriquecido_em: float | None = None,
+    perfil: PerfilICP | None = None,
 ) -> dict[str, Any]:
     """Monta o JSON final de um lead (contrato em schemas/lead.md), com
     proveniência por campo (fonte, rota/URL, timestamp). Campo sem dado
@@ -126,18 +129,30 @@ def build_lead_json(
             lead["redes_sociais"] = enrichment.redes_sociais
             proveniencia["redes_sociais"] = _proveniencia("scraping", origem, enriquecido_em)
 
+    status = _status_enriquecimento(enrichment) if enrichment is not None else None
     if enrichment is not None:
-        lead["enriquecimento"] = {"status": _status_enriquecimento(enrichment), "motivo": enrichment.erro}
+        lead["enriquecimento"] = {"status": status, "motivo": enrichment.erro}
+
+    explicacao = explicar(validacao, enrichment, score, perfil=perfil, status_enriquecimento=status)
+    for campo, valor in explicacao.items():
+        if valor == []:
+            continue
+        lead[campo] = valor
+        proveniencia[campo] = _proveniencia("pipeline", "S6", validado_em)
 
     lead["proveniencia"] = proveniencia
     return lead
 
 
-def _chave_ordenacao(lead: dict[str, Any]) -> tuple[float, float, float, int]:
-    """Score; no empate, quem tem mais fit, depois mais capital, depois mais tempo de mercado —
-    desempate explicável ao vendedor, em vez da ordem em que a busca devolveu.
+_PESO_PRIORIDADE = {"A": 2, "B": 1, "C": 0}
+
+
+def _chave_ordenacao(lead: dict[str, Any]) -> tuple[int, float, float, float, int]:
+    """Prioridade (A, B, C), depois score; no empate, quem tem mais fit, depois mais capital, depois mais
+    tempo de mercado — desempate explicável ao vendedor, em vez da ordem em que a busca devolveu.
     """
     return (
+        _PESO_PRIORIDADE.get(lead.get("prioridade", "C"), 0),
         lead.get("score", 0),
         lead.get("score_breakdown", {}).get("fit") or 0,
         lead.get("capital_social") or 0,
@@ -152,4 +167,4 @@ def export_leads(leads: list[dict[str, Any]], *, max_leads: int = MAX_LEADS_POR_
     """
     ordenados = sorted(leads, key=_chave_ordenacao, reverse=True)
     limitados = ordenados[:max_leads]
-    return {"total": len(limitados), "leads": limitados}
+    return {"total": len(limitados), "leads": limitados, "resumo": resumo(limitados)}

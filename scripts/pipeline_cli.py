@@ -339,7 +339,7 @@ async def _enriquecer_um(
             )
 
     score = compute_score(resultado, enrichment, perfil)
-    lead = build_lead_json(resultado, score, enrichment)
+    lead = build_lead_json(resultado, score, enrichment, perfil=perfil)
     if candidate_url:
         progresso.feitos += 1
         status = lead["enriquecimento"]["status"]

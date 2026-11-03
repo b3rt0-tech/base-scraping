@@ -17,6 +17,31 @@
     }
   ],
   "$defs": {
+    "Canal": {
+      "additionalProperties": false,
+      "properties": {
+        "tipo": {
+          "enum": [
+            "whatsapp",
+            "email",
+            "telefone",
+            "site"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "valor": {
+          "title": "Valor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "valor"
+      ],
+      "title": "Canal",
+      "type": "object"
+    },
     "Decisor": {
       "additionalProperties": false,
       "description": "Quem provavelmente decide a compra. Só nome público e qualificação — sem CPF nem faixa etária.",
@@ -582,6 +607,60 @@
         "score_breakdown": {
           "$ref": "#/$defs/ScoreBreakdown"
         },
+        "prioridade": {
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ],
+          "title": "Prioridade",
+          "type": "string"
+        },
+        "motivos": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motivos"
+        },
+        "alertas": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alertas"
+        },
+        "canal_direto": {
+          "title": "Canal Direto",
+          "type": "boolean"
+        },
+        "melhor_canal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Canal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "flags": {
           "anyOf": [
             {
@@ -609,6 +688,8 @@
         "cnpj",
         "score",
         "score_breakdown",
+        "prioridade",
+        "canal_direto",
         "proveniencia"
       ],
       "title": "Lead",
@@ -707,6 +788,66 @@
       "title": "Proveniencia",
       "type": "object"
     },
+    "Resumo": {
+      "additionalProperties": false,
+      "description": "Boletim do lote: quanto dele dá para trabalhar já.",
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "por_prioridade": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ]
+          },
+          "title": "Por Prioridade",
+          "type": "object"
+        },
+        "com_decisor": {
+          "title": "Com Decisor",
+          "type": "integer"
+        },
+        "com_canal_direto": {
+          "title": "Com Canal Direto",
+          "type": "integer"
+        },
+        "com_whatsapp": {
+          "title": "Com Whatsapp",
+          "type": "integer"
+        },
+        "com_site": {
+          "title": "Com Site",
+          "type": "integer"
+        },
+        "com_contato_de_contador": {
+          "title": "Com Contato De Contador",
+          "type": "integer"
+        },
+        "mei": {
+          "title": "Mei",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "por_prioridade",
+        "com_decisor",
+        "com_canal_direto",
+        "com_whatsapp",
+        "com_site",
+        "com_contato_de_contador",
+        "mei"
+      ],
+      "title": "Resumo",
+      "type": "object"
+    },
     "SaidaDescobrir": {
       "additionalProperties": false,
       "properties": {
@@ -794,6 +935,9 @@
           "title": "Leads",
           "type": "array"
         },
+        "resumo": {
+          "$ref": "#/$defs/Resumo"
+        },
         "descartados": {
           "items": {
             "$ref": "#/$defs/Descartado"
@@ -810,6 +954,7 @@
         "validados",
         "esgotou_busca",
         "leads",
+        "resumo",
         "descartados"
       ],
       "title": "SaidaProspectar",
@@ -828,6 +973,9 @@
           },
           "title": "Leads",
           "type": "array"
+        },
+        "resumo": {
+          "$ref": "#/$defs/Resumo"
         },
         "descartados": {
           "items": {
@@ -859,6 +1007,7 @@
       "required": [
         "total",
         "leads",
+        "resumo",
         "descartados",
         "nao_resolvidos"
       ],

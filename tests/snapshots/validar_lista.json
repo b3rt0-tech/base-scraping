@@ -47,6 +47,19 @@
         "saude_cadastral": 20.0,
         "total": 58.0
       },
+      "prioridade": "B",
+      "motivos": [
+        "lista própria, sem filtro de nicho (+30)",
+        "e-mail/telefone no cadastro da Receita (+8)",
+        "CNPJ ativo na Receita (+10)",
+        "empresa com mais de 6 meses (+5)",
+        "capital social declarado (+5)"
+      ],
+      "canal_direto": true,
+      "melhor_canal": {
+        "tipo": "email",
+        "valor": "contato@sorriso.com.br"
+      },
       "flags": [
         "contato_cadastral_disponivel"
       ],
@@ -140,10 +153,44 @@
           "fonte": "pipeline",
           "rota_ou_url": "S6",
           "timestamp": 1700000000.0
+        },
+        "prioridade": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "motivos": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "canal_direto": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "melhor_canal": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
         }
       }
     }
   ],
+  "resumo": {
+    "total": 1,
+    "por_prioridade": {
+      "A": 0,
+      "B": 1,
+      "C": 0
+    },
+    "com_decisor": 1,
+    "com_canal_direto": 1,
+    "com_whatsapp": 0,
+    "com_site": 0,
+    "com_contato_de_contador": 0,
+    "mei": 0
+  },
   "descartados": [
     {
       "cnpj": "98765432000110",

@@ -84,6 +84,23 @@
         "saude_cadastral": 20.0,
         "total": 94.0
       },
+      "prioridade": "A",
+      "motivos": [
+        "o nicho é a atividade principal (CNAE principal) (+30)",
+        "e-mail do site confere com o cadastral (+22)",
+        "telefone publicado no site (+4)",
+        "WhatsApp publicado no site (+4)",
+        "site oficial confirmado (CNPJ/nome/telefone na página) (+12)",
+        "redes sociais: instagram (+2)",
+        "CNPJ ativo na Receita (+10)",
+        "empresa com mais de 6 meses (+5)",
+        "capital social declarado (+5)"
+      ],
+      "canal_direto": true,
+      "melhor_canal": {
+        "tipo": "whatsapp",
+        "valor": "+5519999999999"
+      },
       "flags": [
         "contato_cadastral_disponivel"
       ],
@@ -202,10 +219,44 @@
           "fonte": "scraping",
           "rota_ou_url": "https://sorriso.com.br/",
           "timestamp": 1700000000.0
+        },
+        "prioridade": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "motivos": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "canal_direto": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
+        },
+        "melhor_canal": {
+          "fonte": "pipeline",
+          "rota_ou_url": "S6",
+          "timestamp": 1700000000.0
         }
       }
     }
   ],
+  "resumo": {
+    "total": 1,
+    "por_prioridade": {
+      "A": 1,
+      "B": 0,
+      "C": 0
+    },
+    "com_decisor": 1,
+    "com_canal_direto": 1,
+    "com_whatsapp": 1,
+    "com_site": 1,
+    "com_contato_de_contador": 0,
+    "mei": 0
+  },
   "descartados": [
     {
       "cnpj": "98765432000110",

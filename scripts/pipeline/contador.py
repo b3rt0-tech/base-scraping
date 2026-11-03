@@ -11,7 +11,7 @@ FLAG_CONTADOR = "contato_de_contador"
 
 # `consult`/`escritorio` ficam de fora: "consultorio" e "consultoria" são comuns em saúde e serviços
 # (falso positivo medido em amostra real de dentistas). `.cnt.br` é o TLD reservado a contabilidade.
-_PALAVRAS_CONTABEIS = re.compile(r"contab|contador|contmais|assessoria")
+_PALAVRAS_CONTABEIS = re.compile(r"contab|contador|assessoria")
 _TLD_CONTABIL = ".cnt.br"
 
 
