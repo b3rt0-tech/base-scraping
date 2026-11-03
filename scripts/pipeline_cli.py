@@ -170,6 +170,31 @@ async def _descobrir_ate_validar(
     return conn, run_id, validados
 
 
+def _ler_sites_json_ou_exit(arquivo: str | None) -> dict[str, str]:
+    """Lê o `--sites-json` (`{"<cnpj>": "<url candidata>"}`). A chave pode vir com ou sem pontuação —
+    é normalizada para 14 dígitos, que é como o pipeline busca a URL de cada lead.
+    """
+    if not arquivo:
+        return {}
+    formato = 'O --sites-json deve ser um objeto {"<cnpj de 14 dígitos>": "<url http(s)>"}'
+    try:
+        dados = json.loads(Path(arquivo).read_text())
+    except (OSError, ValueError) as exc:  # ValueError cobre JSON inválido e arquivo que não é UTF-8
+        _exit_with_error("entrada_invalida", f"não foi possível ler '{arquivo}' como JSON: {exc}")
+    if not isinstance(dados, dict):
+        _exit_with_error("entrada_invalida", f"{formato}; veio {type(dados).__name__}.")
+
+    sites: dict[str, str] = {}
+    for chave, url in dados.items():
+        cnpj = only_digits(chave)
+        if len(cnpj) != 14:
+            _exit_with_error("entrada_invalida", f"{formato}; chave '{chave}' não é um CNPJ.")
+        if not isinstance(url, str) or not url.strip().lower().startswith(("http://", "https://")):
+            _exit_with_error("entrada_invalida", f"{formato}; a URL de '{chave}' precisa começar com http:// ou https://.")
+        sites[cnpj] = url.strip()
+    return sites
+
+
 def _listar_descartados(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """Leads que não chegaram à saída (descartados na validação ou não resolvidos)."""
     descartados: list[dict[str, Any]] = []
@@ -277,9 +302,7 @@ def prospectar(
     """
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
-    sites: dict[str, str] = {}
-    if sites_json:
-        sites = json.loads(Path(sites_json).read_text())
+    sites = _ler_sites_json_ou_exit(sites_json)
 
     async def _pipeline() -> dict[str, Any]:
         conn, run_id, validados = await _descobrir_ate_validar(
@@ -345,9 +368,7 @@ def validar_lista(
     ignorados = max(0, len(itens) - MAX_ITENS_LISTA)
     itens = itens[:MAX_ITENS_LISTA]
 
-    sites: dict[str, str] = {}
-    if sites_json:
-        sites = json.loads(Path(sites_json).read_text())
+    sites = _ler_sites_json_ou_exit(sites_json)
 
     codigo_situacao = icp_module.SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao)
     icp = icp_module.ICP(nicho="lista", cnaes=[], situacao=codigo_situacao)

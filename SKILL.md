@@ -34,7 +34,7 @@ O pipeline já está implementado e testado em `scripts/`. Não escreva Python n
    ```
    uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--sites-json <arquivo.json>]
    ```
-   Sem `--sites-json`, os leads saem sem enriquecimento de site/e-mail (só dado cadastral) — ainda assim é uma saída válida e completa em JSON, com score. Para enriquecer, ache as URLs candidatas via busca web (uma por lead validado, usando nome fantasia/razão social + cidade como pista) e escreva um JSON `{"<cnpj>": "<url>"}` num arquivo temporário antes de rodar `prospectar` com `--sites-json`.
+   Sem `--sites-json`, os leads saem sem enriquecimento de site/e-mail (só dado cadastral) — ainda assim é uma saída válida e completa em JSON, com score. Para enriquecer, ache as URLs candidatas via busca web (uma por lead validado, usando nome fantasia/razão social + cidade como pista) e escreva um JSON `{"<cnpj>": "<url>"}` num arquivo temporário (CNPJ com ou sem pontuação; URL começando com `http://` ou `https://`; formato inválido responde `erro: entrada_invalida`) antes de rodar `prospectar` com `--sites-json`.
    **Lista própria (S2→S3→S4→S6), sem descoberta:** quando o usuário já tem uma lista de empresas (CNPJs ou nomes), escreva um JSON `[{"cnpj": "..."}, {"nome": "...", "uf": "SP", "municipio": "Campinas"}]` num arquivo temporário e rode:
    ```
    uv run python -m scripts.pipeline_cli validar-lista --arquivo <lista.json> [--situacao ativa] [--sites-json <arquivo.json>]
