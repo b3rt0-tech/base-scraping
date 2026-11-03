@@ -7,7 +7,9 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CACHE_DIR = Path(".cache/basecnpj")
+from .config import SKILL_ROOT
+
+DEFAULT_CACHE_DIR = SKILL_ROOT / ".cache" / "basecnpj"
 DEFAULT_TTL_SECONDS = 30 * 24 * 3600  # 30 dias — dado cadastral muda pouco
 NO_CACHE_ROUTES = frozenset({"status"})  # preflight deve ser sempre fresco
 

@@ -12,6 +12,7 @@ import pytest
 from scripts import pipeline_cli
 from scripts.basecnpj import cache as basecnpj_cache
 from scripts.basecnpj import client as basecnpj_client
+from scripts.pipeline import db as db_module
 from scripts.pipeline import perfil as perfil_module
 from scripts.scraping import email_verify
 from scripts.scraping import http as scraping_http
@@ -117,6 +118,7 @@ def isolar_ambiente(request, monkeypatch, tmp_path):
     """
     monkeypatch.setattr(basecnpj_cache, "DEFAULT_CACHE_DIR", tmp_path / "cache-basecnpj")
     monkeypatch.setattr(scraping_http, "SCRAPING_CACHE_DIR", tmp_path / "cache-scraping")
+    monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", tmp_path / "pipeline.sqlite3")
     monkeypatch.delenv("BASECNPJ_BASE_URL", raising=False)
     monkeypatch.setattr(perfil_module, "PERFIL_PADRAO", tmp_path / "sem-icp.yaml")  # um icp.yaml local não vaza
     # o domínio do e-mail da fixture (sorriso.com.br) viraria site candidato: só os testes do site automático ligam

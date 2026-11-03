@@ -14,14 +14,14 @@ from scripts import log as log_module
 from scripts.basecnpj.config import SKILL_ROOT, get_settings
 from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
-from scripts.pipeline import discovery
+from scripts.pipeline import discovery, planilha
 from scripts.pipeline import icp as icp_module
 from scripts.pipeline.contador import marcar_contadores
 from scripts.pipeline.exclusao import ExclusaoInvalida, Exclusoes, carregar_exclusoes
 from scripts.pipeline.export import build_lead_json, export_leads
 from scripts.pipeline.perfil import PerfilICP, PerfilInvalido, carregar_perfil
 from scripts.pipeline.resolve import Candidato, resolve_candidato
-from scripts.pipeline.schemas import Erro, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
+from scripts.pipeline.schemas import Erro, SaidaArquivo, SaidaDescobrir, SaidaProspectar, SaidaValidarLista
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.sinais import aplicar_sinais, site_do_email_cadastral
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
@@ -53,6 +53,12 @@ ExcluirOpt = Annotated[
     str | None,
     typer.Option("--excluir", help="CSV/TXT/JSON com CNPJs e/ou domínios já no CRM (não voltam como lead novo)."),
 ]
+FormatoOpt = Annotated[
+    str,
+    typer.Option("--formato", help="json (padrão, stdout), csv ou xlsx (grava o arquivo; stdout traz o resumo)."),
+]
+SaidaOpt = Annotated[str | None, typer.Option("--saida", help="Arquivo do csv/xlsx (padrão: leads-<nicho>-loteN).")]
+SeparadorOpt = Annotated[str, typer.Option("--separador", help='Separador do CSV: "," (CRMs) ou ";" (Excel BR).')]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
 
@@ -146,6 +152,51 @@ def _icp_resumo(icp: icp_module.ICP, arquivo_perfil: Path | None = None) -> dict
     if arquivo_perfil is not None:
         resumo["perfil"] = str(arquivo_perfil)
     return resumo
+
+
+def _validar_formato_ou_exit(formato: str, separador: str) -> str:
+    formato = formato.strip().lower()
+    if formato not in ("json", "csv", "xlsx"):
+        _exit_with_error("opcoes_invalidas", f"--formato deve ser json, csv ou xlsx; veio '{formato}'.")
+    if separador not in (",", ";", "\t"):
+        _exit_with_error("opcoes_invalidas", '--separador deve ser "," ou ";".')
+    return formato
+
+
+def _emitir_leads(
+    modelo: type[BaseModel], dados: dict[str, Any], *, formato: str, saida: str | None, separador: str, base: str
+) -> None:
+    """JSON no stdout (padrão) ou planilha em arquivo + resumo JSON no stdout. A saída é validada contra o
+    contrato antes de virar planilha também: o CSV nunca carrega um lead que o JSON recusaria.
+    """
+    if formato == "json":
+        _emitir(modelo, dados)
+        return
+    try:
+        modelo.model_validate(dados)
+    except ValidationError as exc:
+        _exit_with_error("saida_invalida", f"a saída não respeita o contrato {modelo.__name__}: {exc}")
+    caminho = Path(saida) if saida else planilha.nome_padrao(base, formato)
+    try:
+        if formato == "csv":
+            planilha.gravar_csv(caminho, dados["leads"], separador=separador)
+        else:
+            planilha.gravar_xlsx(caminho, dados["leads"])
+    except OSError as exc:
+        _exit_with_error("saida_invalida", f"não foi possível gravar '{caminho}': {exc}")
+    log.info("planilha gravada: %s (%d lead(s))", caminho, dados["total"])
+    resumo_arquivo = {
+        "arquivo": str(caminho.resolve()),
+        "formato": formato,
+        "total": dados["total"],
+        "resumo": dados["resumo"],
+        "excluidos": dados.get("excluidos", 0),
+        "descartados": len(dados.get("descartados", [])),
+    }
+    for campo in ("lote", "esgotou_busca"):
+        if campo in dados:
+            resumo_arquivo[campo] = dados[campo]
+    _emitir(SaidaArquivo, resumo_arquivo)
 
 
 def _carregar_exclusoes_ou_exit(caminho: str | None) -> Exclusoes:
@@ -388,7 +439,8 @@ async def _enriquecer_um(
         progresso.feitos += 1
         status = lead["enriquecimento"]["status"] if "enriquecimento" in lead else "sem site próprio"
         motivo = lead["enriquecimento"]["motivo"] if "enriquecimento" in lead else None
-        registrar = log.info if status == "ok" else log.warning
+        # site deduzido do e-mail que não confirmou é o caso comum (domínio só de e-mail): não é aviso
+        registrar = log.info if status == "ok" else log.debug if "enriquecimento" not in lead else log.warning
         sufixo = f" ({motivo})" if motivo else ""
         registrar("S4 %d/%d %s → %s%s", progresso.feitos, progresso.total, resultado.cnpj, status, sufixo)
     return lead
@@ -523,6 +575,9 @@ def prospectar(
     perfil_arquivo: PerfilOpt = None,
     excluir: ExcluirOpt = None,
     sites_json: str | None = None,
+    formato: FormatoOpt = "json",
+    saida: SaidaOpt = None,
+    separador: SeparadorOpt = ",",
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -535,6 +590,7 @@ def prospectar(
     da seção 6 do ARCTETURE.md).
     """
     _configurar_logs(verbose, quiet)
+    formato = _validar_formato_ou_exit(formato, separador)
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
     perfil, arquivo_perfil = _carregar_perfil_ou_exit(perfil_arquivo)
     exclusoes = _carregar_exclusoes_ou_exit(excluir)
@@ -577,7 +633,14 @@ def prospectar(
 
     resultado_final = _run_or_exit(_pipeline())
     log.info("S6 pronto: %d lead(s), %d descartado(s)", resultado_final["total"], len(resultado_final["descartados"]))
-    _emitir(SaidaProspectar, resultado_final)
+    _emitir_leads(
+        SaidaProspectar,
+        resultado_final,
+        formato=formato,
+        saida=saida,
+        separador=separador,
+        base=f"{nicho}-{municipio or uf or ''}-lote{resultado_final['lote']}",
+    )
 
 
 def _ler_json_ou_exit(arquivo: str) -> Any:
@@ -639,6 +702,9 @@ def validar_lista(
     sites_json: str | None = None,
     perfil_arquivo: PerfilOpt = None,
     excluir: ExcluirOpt = None,
+    formato: FormatoOpt = "json",
+    saida: SaidaOpt = None,
+    separador: SeparadorOpt = ",",
     verbose: VerboseOpt = False,
     quiet: QuietOpt = False,
 ) -> None:
@@ -650,6 +716,7 @@ def validar_lista(
     `--sites-json` funciona como em `prospectar`.
     """
     _configurar_logs(verbose, quiet)
+    formato = _validar_formato_ou_exit(formato, separador)
     itens = _ler_lista_ou_exit(arquivo)
     ignorados = max(0, len(itens) - MAX_ITENS_LISTA)
     itens = itens[:MAX_ITENS_LISTA]
@@ -732,7 +799,9 @@ def validar_lista(
         len(resultado_final["descartados"]),
         len(resultado_final["nao_resolvidos"]),
     )
-    _emitir(SaidaValidarLista, resultado_final)
+    _emitir_leads(
+        SaidaValidarLista, resultado_final, formato=formato, saida=saida, separador=separador, base="lista"
+    )
 
 
 if __name__ == "__main__":
