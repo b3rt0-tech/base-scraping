@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from scripts.basecnpj.cache import get_or_fetch
 
@@ -19,14 +20,48 @@ CONTENT_TTL_SECONDS = 7 * 24 * 3600  # 7 dias (seção 9 do ARCTETURE.md)
 MAX_PAGES_PER_DOMAIN = 5
 MIN_DELAY_SECONDS = 2.0
 MAX_DELAY_SECONDS = 5.0
+RETRYABLE_STATUS = frozenset({429, 503})  # backoff exponencial, honrando Retry-After (references/compliance.md)
+MAX_RETRY_WAIT_SECONDS = 60.0
+FETCH_ATTEMPTS = 3
+_DEFAULT_BACKOFF = wait_exponential(multiplier=2, min=2, max=30)
 
 
 class PageBudgetExceeded(Exception):
     """Teto de 5 páginas por domínio atingido (seção 9 do ARCTETURE.md)."""
 
 
+class HttpStatusError(Exception):
+    """Resposta não-2xx. Nunca vai para o cache: um erro passageiro não pode virar verdade por 7 dias."""
+
+    def __init__(self, status_code: int, url: str, retry_after: float | None = None):
+        self.status_code = status_code
+        self.url = url
+        self.retry_after = retry_after
+        super().__init__(f"http_{status_code}: {url}")
+
+
 class RobotsDisallowed(Exception):
     """robots.txt do domínio não permite acessar a URL."""
+
+
+def _retentavel(exc: BaseException) -> bool:
+    return isinstance(exc, HttpStatusError) and exc.status_code in RETRYABLE_STATUS
+
+
+def _retry_wait(retry_state) -> float:
+    exc = retry_state.outcome.exception()
+    if isinstance(exc, HttpStatusError) and exc.retry_after is not None:
+        return min(exc.retry_after, MAX_RETRY_WAIT_SECONDS)
+    return _DEFAULT_BACKOFF(retry_state)
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        return None  # formato HTTP-date não suportado: cai no backoff exponencial
 
 
 def domain_of(url: str) -> str:
@@ -121,11 +156,29 @@ async def fetch(
                 effective_min = max(effective_min, float(crawl_delay))
                 effective_max = max(effective_max, effective_min)
 
-        async def _do_fetch() -> dict[str, Any]:
+        async def _tentativa() -> dict[str, Any]:
             async with session.lock_for(domain):
                 await _respect_domain_delay(domain, session, effective_min, effective_max)
-                response = await http_client.get(url, timeout=15.0, headers={"User-Agent": USER_AGENT})
-                return {"status_code": response.status_code, "text": response.text, "url": str(response.url)}
+                response = await http_client.get(
+                    url, timeout=15.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True
+                )
+            if not response.is_success:
+                raise HttpStatusError(
+                    response.status_code, url, _parse_retry_after(response.headers.get("Retry-After"))
+                )
+            return {"status_code": response.status_code, "text": response.text, "url": str(response.url)}
+
+        async def _do_fetch() -> dict[str, Any]:
+            # o lock é solto entre tentativas: a espera do backoff não segura o domínio
+            async for tentativa in AsyncRetrying(
+                retry=retry_if_exception(_retentavel),
+                stop=stop_after_attempt(FETCH_ATTEMPTS),
+                wait=_retry_wait,
+                reraise=True,
+            ):
+                with tentativa:
+                    return await _tentativa()
+            raise RuntimeError("loop de retry terminou sem resultado")  # inalcançável: reraise=True
 
         if use_cache:
             resultado = await get_or_fetch(
