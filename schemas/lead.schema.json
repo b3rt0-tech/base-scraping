@@ -800,6 +800,17 @@
           ],
           "default": null
         },
+        "qualificacao": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Qualificacao"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "flags": {
           "anyOf": [
             {
@@ -943,7 +954,8 @@
           "enum": [
             "basecnpj",
             "scraping",
-            "pipeline"
+            "pipeline",
+            "consultor"
           ],
           "title": "Fonte",
           "type": "string"
@@ -963,6 +975,55 @@
         "timestamp"
       ],
       "title": "Proveniencia",
+      "type": "object"
+    },
+    "Qualificacao": {
+      "additionalProperties": false,
+      "description": "Veredito do consultor de vendas (o Claude), mesclado via `--qualificacoes`. Recomenda, nunca remove.",
+      "properties": {
+        "veredito": {
+          "enum": [
+            "valido",
+            "talvez",
+            "descartar"
+          ],
+          "title": "Veredito",
+          "type": "string"
+        },
+        "motivo": {
+          "title": "Motivo",
+          "type": "string"
+        },
+        "abordagem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abordagem"
+        },
+        "mensagem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mensagem"
+        }
+      },
+      "required": [
+        "veredito",
+        "motivo"
+      ],
+      "title": "Qualificacao",
       "type": "object"
     },
     "Resumo": {
@@ -1010,6 +1071,28 @@
         "mei": {
           "title": "Mei",
           "type": "integer"
+        },
+        "por_veredito": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "propertyNames": {
+                "enum": [
+                  "valido",
+                  "talvez",
+                  "descartar"
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Por Veredito"
         }
       },
       "required": [
@@ -1208,6 +1291,18 @@
           },
           "title": "Descartados",
           "type": "array"
+        },
+        "aviso": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aviso"
         }
       },
       "required": [

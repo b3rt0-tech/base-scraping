@@ -16,6 +16,7 @@ from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery, planilha
 from scripts.pipeline import icp as icp_module
+from scripts.pipeline import qualificacao as qualificacao_module
 from scripts.pipeline import resultados as resultados_module
 from scripts.pipeline.contador import marcar_contadores
 from scripts.pipeline.exclusao import ExclusaoInvalida, Exclusoes, carregar_exclusoes
@@ -68,6 +69,10 @@ FormatoOpt = Annotated[
 ]
 SaidaOpt = Annotated[str | None, typer.Option("--saida", help="Arquivo do csv/xlsx (padrão: leads-<nicho>-loteN).")]
 SeparadorOpt = Annotated[str, typer.Option("--separador", help='Separador do CSV: "," (CRMs) ou ";" (Excel BR).')]
+QualificacoesOpt = Annotated[
+    str | None,
+    typer.Option("--qualificacoes", help='JSON {"<cnpj>": {"veredito", "motivo", ...}} do consultor de vendas.'),
+]
 QuietOpt = Annotated[bool, typer.Option("--quiet", "-q", help="Só avisos e erros no stderr.")]
 
 
@@ -206,6 +211,21 @@ def _emitir_leads(
         if campo in dados:
             resumo_arquivo[campo] = dados[campo]
     _emitir(SaidaArquivo, resumo_arquivo)
+
+
+def _carregar_qualificacoes_ou_exit(caminho: str | None) -> dict[str, dict[str, Any]]:
+    try:
+        return qualificacao_module.carregar_qualificacoes(caminho)
+    except qualificacao_module.QualificacaoInvalida as exc:
+        _exit_with_error("entrada_invalida", str(exc))
+
+
+def _aplicar_qualificacoes(leads: list[dict[str, Any]], qualificacoes: dict[str, dict[str, Any]]) -> str | None:
+    fora = qualificacao_module.aplicar(leads, qualificacoes)
+    if fora:
+        log.warning("--qualificacoes: %d CNPJ(s) não estão entre os leads desta execução", fora)
+        return f"{fora} CNPJ(s) do --qualificacoes não estão entre os leads desta execução (outra consulta/lote?)"
+    return None
 
 
 def _carregar_exclusoes_ou_exit(caminho: str | None) -> Exclusoes:
@@ -600,6 +620,7 @@ def prospectar(
     perfil_arquivo: PerfilOpt = None,
     excluir: ExcluirOpt = None,
     sites_json: str | None = None,
+    qualificacoes_arquivo: QualificacoesOpt = None,
     formato: FormatoOpt = "json",
     saida: SaidaOpt = None,
     separador: SeparadorOpt = ",",
@@ -621,6 +642,7 @@ def prospectar(
     exclusoes = _carregar_exclusoes_ou_exit(excluir)
 
     sites = _ler_sites_json_ou_exit(sites_json)
+    qualificacoes = _carregar_qualificacoes_ou_exit(qualificacoes_arquivo)
 
     async def _pipeline() -> dict[str, Any]:
         conn, run_id, validados, info = await _descobrir_ate_validar(
@@ -650,7 +672,10 @@ def prospectar(
         marcar_contadores(resultados)
         aplicar_sinais(resultados)
         leads_json = await _enriquecer_e_pontuar(resultados, sites, perfil=perfil)
+        aviso = _aplicar_qualificacoes(leads_json, qualificacoes)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
+        if aviso:
+            saida["aviso"] = aviso
         saida["icp"] = _icp_resumo(icp, arquivo_perfil)
         saida["descartados"] = _listar_descartados(conn, run_id)
         saida.update(info)
@@ -726,6 +751,7 @@ def validar_lista(
     arquivo: str = typer.Option(..., help="JSON com a lista de CNPJs/nomes"),
     situacao: str = "ativa",
     sites_json: str | None = None,
+    qualificacoes_arquivo: QualificacoesOpt = None,
     perfil_arquivo: PerfilOpt = None,
     excluir: ExcluirOpt = None,
     formato: FormatoOpt = "json",
@@ -748,6 +774,7 @@ def validar_lista(
     itens = itens[:MAX_ITENS_LISTA]
 
     sites = _ler_sites_json_ou_exit(sites_json)
+    qualificacoes = _carregar_qualificacoes_ou_exit(qualificacoes_arquivo)
     perfil, _ = _carregar_perfil_ou_exit(perfil_arquivo)
     exclusoes = _carregar_exclusoes_ou_exit(excluir)
 
@@ -810,7 +837,10 @@ def validar_lista(
         marcar_contadores(validados)
         aplicar_sinais(validados)
         leads_json = await _enriquecer_e_pontuar(validados, sites, perfil=perfil)
+        aviso = _aplicar_qualificacoes(leads_json, qualificacoes)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
+        if aviso:
+            saida["aviso"] = aviso
         saida["descartados"] = descartados
         saida["nao_resolvidos"] = nao_resolvidos
         saida["excluidos"] = excluidos
