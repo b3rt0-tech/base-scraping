@@ -30,6 +30,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `alertas[]` | S6 | o que cuidar, já com a ação (`"…parece ser do contador: … prefira WhatsApp ou site."`) | quando houver |
 | `canal_direto` | S6 | há como falar com a empresa sem passar pelo contador | **sempre** |
 | `melhor_canal{tipo, valor}` | S6 | por onde falar primeiro: `whatsapp` (`+55…`) > `email` confirmado no site > `email` cadastral (não contador) > `telefone` > `site` | com canal direto |
+| `qualificacao{veredito, motivo, abordagem?, mensagem?}` | consultor (`--qualificacoes`) | veredito do Claude como consultor de vendas: `valido`, `talvez` ou `descartar` (recomenda, nunca remove); `mensagem` é a 1ª mensagem para leads A. Com qualificações, a saída ordena por veredito → prioridade → score, e o `resumo` ganha `por_veredito` | com `--qualificacoes` |
 | `flags[]` | S3 | `empresa_nova`, `cnae_secundario`, `contato_cadastral_disponivel`, `contato_de_contador` (e-mail/telefone cadastral provavelmente do escritório de contabilidade: não leva ao decisor e perde o bônus de contato no score), `whatsapp_provavel` (celular cadastral próprio: +6 em qualidade de contato), `mei` (microempreendedor individual: ticket e estrutura mínimos), `multiunidade` (mais de um estabelecimento ativo) | quando houver |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | `fonte`: `basecnpj`, `scraping` ou `pipeline` | **sempre** |
 

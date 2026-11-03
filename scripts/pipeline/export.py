@@ -5,6 +5,7 @@ from typing import Any
 
 from scripts.pipeline.explicacao import explicar, resumo
 from scripts.pipeline.perfil import PerfilICP
+from scripts.pipeline.qualificacao import ORDEM_VEREDITO
 from scripts.pipeline.score import ScoreBreakdown
 from scripts.pipeline.sinais import anos_de_mercado, unidades_ativas
 from scripts.pipeline.validate import ValidacaoResult
@@ -151,11 +152,13 @@ def build_lead_json(
 _PESO_PRIORIDADE = {"A": 2, "B": 1, "C": 0}
 
 
-def _chave_ordenacao(lead: dict[str, Any]) -> tuple[int, float, float, float, int]:
-    """Prioridade (A, B, C), depois score; no empate, quem tem mais fit, depois mais capital, depois mais
-    tempo de mercado — desempate explicável ao vendedor, em vez da ordem em que a busca devolveu.
+def _chave_ordenacao(lead: dict[str, Any]) -> tuple[int, int, float, float, float, int]:
+    """Veredito do consultor (válido, talvez, descartar — sem veredito conta como talvez), prioridade (A, B, C),
+    score; no empate, quem tem mais fit, depois mais capital, depois mais tempo de mercado — desempate
+    explicável ao vendedor, em vez da ordem em que a busca devolveu.
     """
     return (
+        ORDEM_VEREDITO.get((lead.get("qualificacao") or {}).get("veredito", "talvez"), 1),
         _PESO_PRIORIDADE.get(lead.get("prioridade", "C"), 0),
         lead.get("score", 0),
         lead.get("score_breakdown", {}).get("fit") or 0,

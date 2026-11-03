@@ -22,7 +22,7 @@ class _Modelo(BaseModel):
 
 
 class Proveniencia(_Modelo):
-    fonte: Literal["basecnpj", "scraping", "pipeline"]
+    fonte: Literal["basecnpj", "scraping", "pipeline", "consultor"]
     rota_ou_url: str
     timestamp: float
 
@@ -68,6 +68,15 @@ class Canal(_Modelo):
     valor: str
 
 
+class Qualificacao(_Modelo):
+    """Veredito do consultor de vendas (o Claude), mesclado via `--qualificacoes`. Recomenda, nunca remove."""
+
+    veredito: Literal["valido", "talvez", "descartar"]
+    motivo: str
+    abordagem: str | None = None
+    mensagem: str | None = None  # 1ª mensagem (WhatsApp ou e-mail), para os leads A
+
+
 class Resumo(_Modelo):
     """Boletim do lote: quanto dele dá para trabalhar já."""
 
@@ -79,6 +88,7 @@ class Resumo(_Modelo):
     com_site: int
     com_contato_de_contador: int
     mei: int
+    por_veredito: dict[Literal["valido", "talvez", "descartar"], int] | None = None  # com `--qualificacoes`
 
 
 class Lead(_Modelo):
@@ -118,6 +128,7 @@ class Lead(_Modelo):
     alertas: list[str] | None = None  # o que cuidar, já com a ação
     canal_direto: bool
     melhor_canal: Canal | None = None
+    qualificacao: Qualificacao | None = None
     flags: list[str] | None = None
     proveniencia: dict[str, Proveniencia]
 
@@ -170,6 +181,7 @@ class SaidaProspectar(_Modelo):
     leads: list[Lead]
     resumo: Resumo
     descartados: list[Descartado]
+    aviso: str | None = None
 
 
 class SaidaValidarLista(_Modelo):
